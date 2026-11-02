@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { preload } from "react-dom";
-import "@fontsource-variable/inter";
-import "@fontsource-variable/fraunces";
 import "./globals.css";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";

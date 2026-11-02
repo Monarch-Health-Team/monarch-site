@@ -650,39 +650,24 @@
 }
 
 /* ------------------------------------------------------------------ *
- * The hero line, dissolving in.
- *
- * CSS rather than framer-motion, and the reason matters. The framer
- * version rendered its `initial` state into the server HTML, so the
- * page's only h1 sat at opacity 0 through the whole hydration window —
- * a blank hero on a slow connection, and a permanently blank one if the
- * JS never arrived. A keyframe runs at first paint with no script at
- * all, and `both` holds the start state through the delay so the pieces
- * can be staggered.
- *
- * The blur is what makes it read as the words resolving out of the
- * photograph behind them rather than sliding on from off-screen; the
- * lift and the scale are small enough to settle rather than to move.
+ * The butterfly's tug on the spans band: a slow nudge forward, up and
+ * tilted, and back. CSS rather than a JS animation library, so the band
+ * costs no script (it was framer-motion, which was the bulk of the
+ * homepage's startup JS). Same path and timing as before: 0 -> (7px,
+ * -3px, -5deg) -> 0 over 5s, eased at each leg.
  * ------------------------------------------------------------------ */
-@keyframes dissolve-in {
-  from {
-    opacity: 0;
-    filter: blur(14px);
-    transform: translateY(10px) scale(1.03);
-  }
-  to {
-    opacity: 1;
-    filter: blur(0);
+@keyframes span-tug {
+  0%,
+  100% {
     transform: none;
   }
+  50% {
+    transform: translate(7px, -3px) rotate(-5deg);
+  }
 }
-
-@utility dissolve-in {
-  animation: dissolve-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dissolve-in {
+@utility animate-span-tug {
+  animation: span-tug 5s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
     animation: none;
   }
 }

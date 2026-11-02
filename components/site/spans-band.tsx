@@ -1,8 +1,3 @@
-"use client";
-
-import * as React from "react";
-import { motion, useReducedMotion } from "framer-motion";
-
 import { ButterflyMark } from "@/components/site/butterfly-mark";
 import { InfoTooltip } from "@/components/site/info-tooltip";
 
@@ -68,18 +63,6 @@ const NIB = 16;
 const CHEVRON = `polygon(0 0, calc(100% - ${NIB}px) 0, 100% 50%, calc(100% - ${NIB}px) 100%, 0 100%)`;
 
 export function SpansBand() {
-  const reduce = useReducedMotion();
-  const tug = reduce
-    ? {}
-    : {
-        animate: { x: [0, 7, 0], y: [0, -3, 0], rotate: [0, -5, 0] },
-        transition: {
-          duration: 5,
-          repeat: Infinity,
-          ease: "easeInOut" as const,
-        },
-      };
-
   return (
     <figure>
       {/* The lifespan bar runs the full width of the container and holds
@@ -172,8 +155,8 @@ export function SpansBand() {
 
           {/* Two spans, not one: the outer carries the position and the
               fade, which is the keyframe's business, and the inner
-              carries the tug, which framer writes as a transform. One
-              element cannot do both - framer's inline transform would
+              carries the tug, which is a transform (animate-span-tug). One
+              element cannot do both - the tug's transform would
               take the centring with it.
 
               The keyframe is the reach's twin, so the butterfly is
@@ -182,9 +165,9 @@ export function SpansBand() {
             aria-hidden
             className="animate-span-butterfly pointer-events-none absolute top-1/2 block -translate-y-1/2"
           >
-            <motion.span {...tug} className="block">
+            <span className="animate-span-tug block">
               <ButterflyMark className="h-4 w-auto sm:h-5" />
-            </motion.span>
+            </span>
           </span>
         </div>
 
