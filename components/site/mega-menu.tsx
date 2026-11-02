@@ -22,30 +22,33 @@ const MENU_SECTIONS = PRIMARY_NAV.filter(
 );
 
 export default function MegaMenu({
-  openItem,
-  prevItem,
+  openLabel,
+  prevLabel,
   overlay,
   panelRef,
   contentRef,
   onKeyDown,
 }: {
-  openItem: NavSection;
-  prevItem: NavSection | null;
+  openLabel: string;
+  prevLabel: string | null;
   overlay: boolean;
   panelRef: RefObject<HTMLDivElement | null>;
   contentRef: RefObject<HTMLDivElement | null>;
   onKeyDown: (e: React.KeyboardEvent) => void;
 }) {
+  const openItem = MENU_SECTIONS.find((s) => s.label === openLabel);
+  const prevItem = MENU_SECTIONS.find((s) => s.label === prevLabel);
   const [panelHeight, setPanelHeight] = useState<number | undefined>(undefined);
   useLayoutEffect(() => {
     if (contentRef.current) {
       setPanelHeight(Math.max(280, contentRef.current.offsetHeight));
     }
-  }, [openItem, contentRef]);
+  }, [openLabel, contentRef]);
 
   /* The panel only exists from xl, inside the 1280px container: the photo
      cell is a quarter of the bar's content (about 300px), or a half (about
      600px) where the section splits the panel in two. */
+  if (!openItem) return null;
   const imageSizes = openItem.splitHalf
     ? "(min-width: 1280px) 600px, 50vw"
     : "(min-width: 1280px) 300px, 25vw";

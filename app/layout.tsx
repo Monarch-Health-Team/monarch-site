@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { preload } from "react-dom";
 import "./globals.css";
 import { SiteHeader } from "@/components/site/site-header";
+import { NAV_BAR } from "@/components/site/nav-bar-data";
 import { SiteFooter } from "@/components/site/site-footer";
 import { PreviewBanner } from "@/components/site/preview-banner";
 import { SITE } from "@/lib/site";
@@ -72,7 +73,7 @@ export default function RootLayout({
         <body>
           {jsonLd}
           <PreviewBanner />
-          <SiteHeader />
+          <SiteHeader nav={NAV_BAR} />
           <main id="main">{children}</main>
           <SiteFooter />
         </body>
@@ -83,7 +84,7 @@ export default function RootLayout({
     <html lang="en-CA">
       <body>
         {jsonLd}
-        <SiteHeader />
+        <SiteHeader nav={NAV_BAR} />
         <main id="main">{children}</main>
         <SiteFooter />
         {/* Brand butterfly — flies in when the reader settles on a section

@@ -5,9 +5,9 @@ import dynamic from "next/dynamic";
 import Link from "@/components/site/live-link";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown } from "lucide-react";
-import { PRIMARY_NAV, type NavSection } from "@/lib/nav";
+import type { NavBarItem } from "./nav-bar-data";
 import { Logo } from "./logo";
-import { activeHrefIn, pathOf } from "./nav-active";
+import { activeHref, pathOf } from "./nav-active";
 import { HeaderSearchLink } from "./header-search-link";
 import { cn } from "@/lib/utils";
 import { SOFT_LAUNCH_ON } from "@/lib/soft-launch";
@@ -38,7 +38,7 @@ function navLinkClass(active: boolean, overlay: boolean) {
   );
 }
 
-export function SiteHeader() {
+export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const pathname = usePathname();
@@ -53,7 +53,7 @@ export function SiteHeader() {
    */
   const isHome = pathname === "/";
   const overlay: boolean = false;
-  const openItem = PRIMARY_NAV.find((i) => i.label === openMenu && i.children);
+  const openItem = nav.find((i) => i.label === openMenu && i.children);
 
   /*
    * Moving from one menu to the next: the panel stays mounted, its height
@@ -61,12 +61,12 @@ export function SiteHeader() {
    * incoming one. `prevItem` is the section on its way out, kept for the
    * length of the fade.
    */
-  const [prevItem, setPrevItem] = useState<NavSection | null>(null);
-  const lastOpenRef = useRef<NavSection | null>(null);
+  const [prevItem, setPrevItem] = useState<string | null>(null);
+  const lastOpenRef = useRef<string | null>(null);
   useEffect(() => {
     const last = lastOpenRef.current;
-    lastOpenRef.current = openItem ?? null;
-    if (openItem && last && last !== openItem) {
+    lastOpenRef.current = openItem?.label ?? null;
+    if (openItem && last && last !== openItem.label) {
       setPrevItem(last);
       const t = window.setTimeout(() => setPrevItem(null), 400);
       return () => window.clearTimeout(t);
@@ -76,10 +76,11 @@ export function SiteHeader() {
   const contentRef = useRef<HTMLDivElement>(null);
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
 
-  // Fetch the menu chunk once the page has settled, so the first open is
-  // instant but nothing competes with the first screen.
+  // Fetch the menu chunk when the reader first reaches for the header (the
+  // handlers on <header>), or failing that well after the page has settled,
+  // so nothing competes with the first screen or its hydration.
   useEffect(() => {
-    const id = window.setTimeout(() => void loadMegaMenu(), 1500);
+    const id = window.setTimeout(() => void loadMegaMenu(), 8000);
     return () => window.clearTimeout(id);
   }, []);
 
@@ -266,13 +267,15 @@ export function SiteHeader() {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
   /* A section is selected when the reader is on its own page or on any page
      listed in its menu, so a sub page keeps its parent selected too. */
-  const isSectionActive = (item: NavSection) =>
-    isActive(item.href) || activeHrefIn(item, pathname) !== null;
+  const isSectionActive = (item: NavBarItem) =>
+    isActive(item.href) || activeHref(item.hrefs, pathname) !== null;
 
   return (
     <header
       ref={headerRef}
       data-overlay={overlay}
+      onPointerEnter={() => void loadMegaMenu()}
+      onFocus={() => void loadMegaMenu()}
       onMouseLeave={() => setOpenMenu(null)}
       onKeyDown={onHeaderKeyDown}
       className={cn(
@@ -336,7 +339,7 @@ export function SiteHeader() {
               aria-label="Primary"
               className="hidden min-w-0 xl:flex xl:flex-wrap xl:items-center xl:gap-1"
             >
-              {PRIMARY_NAV.map((item) =>
+              {nav.map((item) =>
                 item.children ? (
                   <div
                     key={item.label}
@@ -428,8 +431,8 @@ export function SiteHeader() {
           here is needed for the first screen. */}
       {openItem && openItem.children && (
         <MegaMenu
-          openItem={openItem}
-          prevItem={prevItem}
+          openLabel={openItem.label}
+          prevLabel={prevItem}
           overlay={overlay}
           panelRef={panelRef}
           contentRef={contentRef}
@@ -447,7 +450,7 @@ export function SiteHeader() {
             {/* Sign in first: a returning member should not scroll past five
                 sections of reading to reach their own information. */}
             <ul className="space-y-1">
-              {PRIMARY_NAV.map((item) => (
+              {nav.map((item) => (
                 <li key={item.label}>
                   <Link
                     href={item.href}
@@ -474,13 +477,13 @@ export function SiteHeader() {
                           <Link
                             href={child.href}
                             aria-current={
-                              child.href === activeHrefIn(item, pathname)
+                              child.href === activeHref(item.hrefs, pathname)
                                 ? "page"
                                 : undefined
                             }
                             className={cn(
                               "block rounded-md px-3 py-2.5 hover:bg-orange-50 hover:text-orange-700",
-                              child.href === activeHrefIn(item, pathname)
+                              child.href === activeHref(item.hrefs, pathname)
                                 ? "bg-orange-50 font-semibold text-orange-700 shadow-[inset_3px_0_0_var(--color-orange-600)]"
                                 : "text-neutral-700",
                             )}

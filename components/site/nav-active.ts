@@ -10,23 +10,28 @@ function matchLength(pathname: string, href: string): number {
   return pathname === p || pathname.startsWith(`${p}/`) ? p.length : 0;
 }
 
-/**
- * Which entry inside a section is the page the reader is on: the one whose
- * href is the longest match for the current path, so "/healthspan/nutrition"
- * lights its own entry rather than the "all topics" entry above it.
- * Null when the reader is not on any of them.
- */
-export function activeHrefIn(item: NavSection, pathname: string): string | null {
-  if (!item.children) return null;
+/** Every href that sits inside a section: its entries, their sub-items and the secondary list. */
+export function sectionHrefs(item: NavSection): string[] {
+  if (!item.children) return [];
   const all: string[] = [];
   for (const c of item.children) {
     all.push(c.href);
     for (const sb of c.sub ?? []) all.push(sb.href);
   }
   for (const l of item.secondary?.links ?? []) all.push(l.href);
+  return all;
+}
+
+/**
+ * Which of a section's hrefs is the page the reader is on: the longest match
+ * for the current path, so "/healthspan/nutrition" lights its own entry
+ * rather than the "all topics" entry above it. Null when the reader is not on
+ * any of them.
+ */
+export function activeHref(hrefs: string[], pathname: string): string | null {
   let best: string | null = null;
   let bestLen = 0;
-  for (const href of all) {
+  for (const href of hrefs) {
     const len = matchLength(pathname, href);
     if (len > bestLen) {
       best = href;
@@ -34,4 +39,8 @@ export function activeHrefIn(item: NavSection, pathname: string): string | null 
     }
   }
   return best;
+}
+
+export function activeHrefIn(item: NavSection, pathname: string): string | null {
+  return activeHref(sectionHrefs(item), pathname);
 }

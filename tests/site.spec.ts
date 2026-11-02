@@ -76,7 +76,18 @@ for (const path of PAGES) {
     });
 
     test("full-page screenshot", async ({ page }, info) => {
+      // Reduced motion, and any finite animation allowed to finish, so the
+      // screenshot never catches a word or a section mid-transition.
+      await page.emulateMedia({ reducedMotion: "reduce" });
       await open(page, path);
+      await page.evaluate(() =>
+        Promise.all(
+          document
+            .getAnimations()
+            .filter((a) => a.effect?.getTiming().iterations !== Infinity)
+            .map((a) => a.finished.catch(() => undefined)),
+        ),
+      );
       await page.screenshot({
         path: `qa-artifacts/screenshots/${slug(path)}-${info.project.name}.png`,
         fullPage: true,
