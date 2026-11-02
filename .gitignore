@@ -1,0 +1,17 @@
+# dependencies
+node_modules
+
+# Next.js build output
+.next
+out
+build
+
+# env files (never committed)
+.env*
+
+# misc
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+.vercel
+*.log
