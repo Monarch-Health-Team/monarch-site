@@ -4,6 +4,8 @@ on:
     types: [opened, labeled]
 permissions:
   contents: read
+concurrency:
+  group: agent-assign-${{ github.event.issue.number }}
 jobs:
   assign:
     if: contains(github.event.issue.labels.*.name, 'agent')
