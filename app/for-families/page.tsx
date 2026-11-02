@@ -1,80 +1,55 @@
 import type { Metadata } from "next";
-import { Activity, ClipboardCheck, ShieldCheck } from "lucide-react";
+import { ClipboardCheck, FileText, ShieldCheck } from "lucide-react";
+import { CredentialsBand } from "@/components/sections/credentials";
 import { CtaBand } from "@/components/sections/cta-band";
 import { Hero } from "@/components/sections/hero";
 import { ButtonLink, TextLink } from "@/components/ui/actions";
-import { Card, IconBadge } from "@/components/ui/card";
-import { ImagePlaceholder, type Tint } from "@/components/ui/image-placeholder";
-import { Eyebrow, Section, SectionHeading } from "@/components/ui/layout";
-import { TickList } from "@/components/ui/lists";
-import { PENDING, ROUTES, type Href } from "@/lib/site";
+import { EditorialCard, ToolCard } from "@/components/ui/card";
+import { Section, SectionHeading } from "@/components/ui/layout";
+import { HairlineGrid, TickList } from "@/components/ui/lists";
+import { Photo } from "@/components/ui/photo";
+import { IMAGES } from "@/lib/images";
+import { PENDING, ROUTES } from "@/lib/site";
 
-// For families · Figma frame 20:1314. Copy exactly as in design-handoff.md.
-
+/*
+ * For families v2 (Figma 58:382 desktop, 58:722 mobile). Copy: v2 copy
+ * deck, section 10. Tool pages, guides, BC forms, the resource library and
+ * the caregiver community do not exist yet, so "All tools", "Start this
+ * check", "Open", "Join the caregiver community" and "Home changes to stay
+ * independent" are not rendered (v2 build notes, P0-2).
+ */
 export const metadata: Metadata = {
-  title: "For families",
-  description: "For the family arranging care: free planning tools, guides, forms and caregiver support.",
+  title: { absolute: "Help for Families Arranging Care | Monarch Health" },
+  description:
+    "For the son, daughter or spouse arranging care: free planning tools, guides, BC forms and caregiver support, with family kept informed by consent.",
 };
 
-const SITUATIONS: { title: string; body: string; image: string; tint: Tint; href: Href }[] = [
+const SITUATIONS = [
   {
     title: "After a fall",
     body: "Balance, strength, medications and the home reviewed quickly, so it does not happen again.",
-    image: "After a fall: family and older adult at home",
-    tint: "blue",
+    photo: IMAGES.families.afterFall,
     href: `${ROUTES.ageingInPlace}#what-it-includes`,
   },
   {
     title: "After a hospital discharge",
     body: "The weeks when readmission is most likely, covered by someone with the discharge summary.",
-    image: "After a hospital discharge: family and older adult at home",
-    tint: "warm",
+    photo: IMAGES.families.afterDischarge,
     href: `${ROUTES.careAtHome}#after-hospital`,
   },
   {
     title: "A gradual realization",
     body: "Things are no longer quite manageable, and nobody is sure what to do first.",
-    image: "A gradual realization: family and older adult at home",
-    tint: "sand",
+    photo: IMAGES.families.gradual,
     href: ROUTES.howItWorks,
   },
 ];
 
 const TOOLS = [
-  {
-    audience: "For families assessing an older parent",
-    title: "Daily Living Assessment",
-    body: "14 questions on the daily tasks that matter most for staying safe at home.",
-    time: "About 10 minutes",
-  },
-  {
-    audience: "For families noticing changes",
-    title: "Memory Concerns Check",
-    body: "8 short questions answered by a family member about someone they care for.",
-    time: "About 4 minutes",
-  },
-  {
-    audience: "For adults over 60",
-    title: "Mood Check for Older Adults",
-    body: "A short 15-question check for low mood.",
-    time: "About 5 minutes",
-  },
-  {
-    audience: "For family caregivers",
-    title: "Caregiver Strain Index",
-    body: "13 questions about how caregiving is affecting you.",
-    time: "About 5 minutes",
-  },
-];
-
-const TOOLKIT = [
-  { icon: ClipboardCheck, title: "Monarch guides", body: "Practical aids for the moments families get stuck." },
-  { icon: Activity, title: "Forms & applications", body: "Direct links to the official BC and Canadian forms families most often need." },
-  {
-    icon: ShieldCheck,
-    title: "Resource library",
-    body: "Organizations and services across BC, most free and publicly funded, with why we trust each.",
-  },
+  { badge: "For families assessing an older parent", title: "Daily Living Assessment", body: "14 questions on the daily tasks that matter most for staying safe at home.", time: "About 10 minutes" },
+  { badge: "For families noticing changes", title: "Memory Concerns Check", body: "8 short questions answered by a family member about someone they care for.", time: "About 4 minutes" },
+  { badge: "For adults over 60", title: "Mood Check for Older Adults", body: "A short 15-question check for low mood.", time: "About 5 minutes" },
+  { badge: "For family caregivers", title: "Caregiver Strain Index", body: "13 questions about how caregiving is affecting you.", time: "About 5 minutes" },
 ];
 
 export default function ForFamiliesPage() {
@@ -89,98 +64,76 @@ export default function ForFamiliesPage() {
           { label: "Book an assessment", href: ROUTES.book, variant: "primary" },
           { label: "Try a free planning tool", href: "#tools", variant: "secondary" },
         ]}
-        imageLabel="adult child with older parent, outdoors · subject right of centre, left third of frame kept clear"
+        image={IMAGES.families.hero}
       />
+      <CredentialsBand />
 
       {/* When families usually call */}
-      <Section tone="sand" labelledBy="when-heading">
+      <Section tone="white" labelledBy="when-heading">
         <SectionHeading id="when-heading" eyebrow="Where it starts" title="When families usually call" />
-        <ul className="mt-10 grid gap-6 md:grid-cols-3">
+        <ul className="mt-10 grid gap-10 md:grid-cols-3 lg:mt-14">
           {SITUATIONS.map((s) => (
-            <Card as="li" key={s.title} className="gap-4">
-              <ImagePlaceholder label={s.image} tint={s.tint} className="aspect-[16/9] w-full" />
-              <h3 className="type-h3 pt-1 text-[22px]">{s.title}</h3>
-              <p className="text-[15px]">{s.body}</p>
-              <TextLink href={s.href} className="mt-auto">
-                What we do
-              </TextLink>
-            </Card>
+            <EditorialCard key={s.title} image={s.photo} title={s.title} body={s.body} titleSize="lg" action={<TextLink href={s.href}>What we do</TextLink>} />
           ))}
         </ul>
       </Section>
 
-      {/* Free planning tools (handoff note 4: answers must never leave the browser) */}
+      {/* Free planning tools */}
       <Section tone="cream" id="tools" labelledBy="tools-heading">
         <SectionHeading
           id="tools-heading"
           eyebrow="Free planning tools"
           title="Established checks clinicians use, free for anyone."
-          intro="Each one scores in your browser, explains the result in plain words, and says what to do next. Your answers are never sent to us. These are screening tools, not diagnoses."
-          introClassName="max-w-[640px]"
-          action={<TextLink href={PENDING}>All tools</TextLink>}
+          lead="Each one scores in your browser, explains the result in plain words, and says what to do next. Your answers are never sent to us. These are screening tools, not diagnoses."
         />
-        <ul className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-4 lg:gap-6" data-compliance="free-tools">
+        <ul className="mt-10 grid gap-6 sm:grid-cols-2 lg:mt-14 lg:grid-cols-4">
           {TOOLS.map((t) => (
-            <Card as="li" key={t.title} className="gap-2.5 sm:p-6">
-              <Eyebrow>{t.audience}</Eyebrow>
-              <h3 className="type-h3 text-[21px]">{t.title}</h3>
-              <p className="text-[15px]">{t.body}</p>
-              <p className="text-[14px] text-muted">{t.time}</p>
-              <div className="mt-auto pt-2">
+            <ToolCard
+              key={t.title}
+              {...t}
+              action={
                 <ButtonLink href={PENDING} variant="secondary">
                   Start this check
                 </ButtonLink>
-              </div>
-            </Card>
+              }
+            />
           ))}
         </ul>
       </Section>
 
-      {/* Guides, forms, resource library */}
-      <Section tone="sand" id="toolkit" labelledBy="toolkit-heading">
+      {/* The rest of the toolkit */}
+      <Section tone="white" id="toolkit" labelledBy="toolkit-heading">
         <SectionHeading id="toolkit-heading" eyebrow="The rest of the toolkit" title="Guides, forms and trusted services" />
-        <ul className="mt-10 grid gap-6 md:grid-cols-3">
-          {TOOLKIT.map((t) => (
-            <Card as="li" key={t.title} className="sm:p-6">
-              <IconBadge icon={t.icon} />
-              <h3 className="type-h3 pt-1 text-[21px]">{t.title}</h3>
-              <p className="text-[15px]">{t.body}</p>
-              <TextLink href={PENDING} className="mt-auto">
-                Open
-              </TextLink>
-            </Card>
-          ))}
-        </ul>
+        <HairlineGrid
+          columns={3}
+          titleSize="lg"
+          className="mt-10 lg:mt-14"
+          items={[
+            { icon: ClipboardCheck, title: "Monarch guides", body: "Practical aids for the moments families get stuck." },
+            { icon: FileText, title: "Forms & applications", body: "Direct links to the official BC and Canadian forms families most often need." },
+            { icon: ShieldCheck, title: "Resource library", body: "Organizations and services across BC, most free and publicly funded, with why we trust each." },
+          ]}
+        />
       </Section>
 
-      {/* Caregiver support */}
-      <Section tone="cream" id="caregiver-support" labelledBy="caregiver-heading">
-        <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-12">
-          <ImagePlaceholder label="two family members talking, warm light" tint="blue" className="aspect-[4/3] w-full lg:aspect-auto lg:h-[380px]" />
-          <div className="flex flex-col gap-4">
-            <Eyebrow>Caregiver support</Eyebrow>
-            <h2 id="caregiver-heading" className="type-h2-sm">
-              Looking after yourself while caregiving
-            </h2>
-            <p className="text-[17px]">
-              Getting a parent assessed when they do not want to be. Navigating home support and what is actually covered. Siblings who do not agree. Looking after yourself while doing this. The practical questions are answerable.
-            </p>
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-4 pt-2">
-              <ButtonLink href={PENDING} variant="secondary">
-                Join the caregiver community
-              </ButtonLink>
-              <TextLink href={PENDING}>Home changes to stay independent</TextLink>
-            </div>
-          </div>
+      {/* Caregiver support (the page's one sand section) */}
+      <Section tone="sand" id="caregiver-support" labelledBy="caregiver-heading">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,520px)_minmax(0,1fr)] lg:items-center lg:gap-16 xl:gap-24">
+          <Photo image={IMAGES.families.caregiverSupport} sizes="(min-width: 1440px) 520px, (min-width: 1024px) 40vw, 100vw" className="aspect-[4/3] w-full lg:aspect-auto lg:h-[390px]" />
+          <SectionHeading
+            id="caregiver-heading"
+            eyebrow="Caregiver support"
+            title="Looking after yourself while caregiving"
+            lead="Getting a parent assessed when they do not want to be. Navigating home support and what is actually covered. Siblings who do not agree. Looking after yourself while doing this. The practical questions are answerable."
+          />
         </div>
       </Section>
 
-      {/* Family in the loop (consent: handoff note 5) */}
-      <Section tone="sand" labelledBy="loop-heading">
-        <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
-          <SectionHeading id="loop-heading" eyebrow="With consent" title="Family kept in the loop, on the person’s terms" className="max-w-[460px]" />
+      {/* Family in the loop */}
+      <Section tone="cream" labelledBy="loop-heading">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,460px)_minmax(0,640px)] lg:justify-between lg:gap-24">
+          <SectionHeading id="loop-heading" eyebrow="With consent" title="Family kept in the loop, on the person’s terms" />
           <TickList
-            className="lg:pt-6"
             items={[
               "Plain-language updates on what has changed",
               "Planning conversations held early, while everyone is calm",

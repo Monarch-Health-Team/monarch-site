@@ -1,26 +1,47 @@
 @import "tailwindcss";
 
 /*
- * Monarch Health design tokens, from the hi-fi handoff
- * (details/design-handoff.md, "Palette" and "Type").
+ * Monarch Health design tokens, v2 (Jenny's v2 upgrade, Design system frame
+ * 43:102 and section 5 of the v2 spec). Brand colour values are unchanged;
+ * the rule is navy for structure, orange #B23400 only for things you can
+ * click, and the logo orange #D94000 only inside the logo.
  */
 @theme {
-  --color-navy: #00236f; /* logo blue · primary */
-  --color-accent: #d94000; /* logo orange: icons, ticks, 40px CTA headline only */
-  --color-accent-text: #b23400; /* orange for text: eyebrows, links, CTA body/buttons */
-  --color-cream: #f3ebdd; /* base page / hero / CTA band */
-  --color-sand: #e9ddc8; /* alternate sections */
-  --color-tint: #fbe4d8; /* icon badges, tick circles */
-  --color-line: #e2d6c2; /* card borders, dividers, rules */
+  --color-navy: #00236f; /* structure, headings, icons, footer, authority band */
+  --color-action: #b23400; /* anything clickable */
+  --color-action-hover: #962c00;
+  --color-action-tint: #fff8f3; /* selected radio card */
+  --color-cream: #f3ebdd; /* page base */
+  --color-sand: #e9ddc8; /* at most once a page */
+  --color-line: #e2d6c2; /* hairlines, decorative dividers */
+  --color-field: #8c8070; /* input, select, radio and checkbox borders */
   --color-body: #4d463e; /* paragraphs */
-  --color-muted: #6b6157; /* breadcrumbs, small notes, dates */
-  --color-on-navy: #c8d1e6; /* footer body */
-  --color-on-navy-muted: #aeb9d3; /* footer legal notes */
+  --color-muted: #6b6157; /* meta and helper text */
+  --color-error: #a3261b; /* errors and the urgent notice */
+  --color-error-tint: #fbedea;
+  --color-on-navy: #c8d1e6; /* body text on navy */
+  --color-on-navy-muted: #aeb9d3; /* footer headings and legal notes */
+  --color-navy-line: #2a4689; /* hairlines on navy */
 
   --font-serif: "Source Serif 4 Variable", Georgia, "Times New Roman", serif;
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
 
-  --shadow-card: 0 6px 20px rgba(0, 35, 111, 0.08);
+/*
+ * shadcn/ui theme variables (v2 spec P2-2), mapped to the tokens above so a
+ * later move to shadcn components picks up the same values.
+ */
+:root {
+  --background: #f3ebdd;
+  --foreground: #4d463e;
+  --primary: #b23400;
+  --primary-foreground: #ffffff;
+  --ring: #00236f;
+  --border: #e2d6c2;
+  --input: #8c8070;
+  --destructive: #a3261b;
+  --radius: 0.5rem;
+  --heading: #00236f;
 }
 
 @layer base {
@@ -29,10 +50,12 @@
     scroll-behavior: smooth;
     /*
      * Keeps anchor targets and keyboard-focused elements clear of the sticky
-     * header (77px below 1280, 93px at 1280+) plus the 2px+2px focus ring,
+     * header (69px below 1280, 89px at 1280+) plus the 2px+3px focus ring,
      * in both tab directions (WCAG 2.4.11).
      */
     scroll-padding-top: 6.5rem;
+    /* Room for the sticky mobile Book bar when tabbing backwards. */
+    scroll-padding-bottom: 6rem;
   }
   @media (prefers-reduced-motion: reduce) {
     html {
@@ -40,70 +63,114 @@
     }
   }
   body {
-    background-color: var(--color-cream);
-    color: var(--color-body);
+    background-color: var(--background);
+    color: var(--foreground);
     font-family: var(--font-sans);
-    line-height: 1.55;
+    font-size: 1rem;
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
   }
-  /* Focus ring (handoff note 11): 2px logo blue, 2px offset. White on blue areas. */
+  /* v2 spec 9.2: balanced headings, no one-word last lines in running text. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    color: var(--heading);
+    text-wrap: balance;
+  }
+  p,
+  li,
+  dd,
+  figcaption,
+  caption,
+  blockquote {
+    text-wrap: pretty;
+  }
+  /*
+   * Focus ring (Design system): 2px navy, 3px offset, appears at once (no
+   * transition on outline). White on navy areas.
+   */
   :focus-visible {
-    outline: 2px solid var(--color-navy);
-    outline-offset: 2px;
+    outline: 2px solid var(--ring);
+    outline-offset: 3px;
     border-radius: 4px;
+    transition-property: none;
   }
   .on-navy :focus-visible {
     outline-color: #ffffff;
   }
 }
 
-/* Headings: Source Serif 4 Regular, logo blue, line-height 116%, tracking -1%. */
+/*
+ * Fluid type: each clamp runs linearly from its mobile size at 390px to its
+ * spec size at the 1440 design width (Tyler QA, Nov 2), then holds.
+ */
+/* H1: Source Serif 4 Light 68px, line-height 104%, tracking -2% (42px mobile). */
 @utility type-h1 {
   font-family: var(--font-serif);
-  font-weight: 400;
-  color: var(--color-navy);
-  line-height: 1.16;
-  letter-spacing: -0.01em;
-  font-size: clamp(2.375rem, 1.6rem + 2.4vw, 3.5rem); /* 38 → 56px */
+  font-weight: 300;
+  line-height: 1.04;
+  letter-spacing: -0.02em;
+  font-size: clamp(2.625rem, 2.0215rem + 2.4762vw, 4.25rem); /* 42px at 390 → 68px at 1440 and up */
 }
+/* Inner-page hero H1 in the v2 frames: Light 60px, line-height 106%. */
+@utility type-h1-page {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  line-height: 1.06;
+  letter-spacing: -0.02em;
+  font-size: clamp(2.625rem, 2.2072rem + 1.7143vw, 3.75rem); /* 42px at 390 → 60px at 1440 and up */
+}
+/* H2: Light 48px, line-height 112%, tracking -1.5% (32px mobile). */
 @utility type-h2 {
   font-family: var(--font-serif);
-  font-weight: 400;
-  color: var(--color-navy);
-  line-height: 1.16;
-  letter-spacing: -0.01em;
-  font-size: clamp(1.875rem, 1.4rem + 1.5vw, 2.5rem); /* 30 → 40px */
+  font-weight: 300;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  font-size: clamp(2rem, 1.6286rem + 1.5239vw, 3rem); /* 32px at 390 → 48px at 1440 and up */
 }
-@utility type-h2-sm {
+/* H2 on the navy band: Light 44px. */
+@utility type-h2-band {
   font-family: var(--font-serif);
-  font-weight: 400;
-  color: var(--color-navy);
-  line-height: 1.16;
-  letter-spacing: -0.01em;
-  font-size: clamp(1.75rem, 1.35rem + 1.25vw, 2.25rem); /* 28 → 36px */
+  font-weight: 300;
+  line-height: 1.12;
+  letter-spacing: -0.015em;
+  font-size: clamp(2rem, 1.7215rem + 1.1429vw, 2.75rem); /* 32px at 390 → 44px at 1440 and up */
 }
-@utility type-h2-lg {
+/* Closing CTA headline: Light 56px at 1440 (Figma 38:57; Doc range 52–56), centred, navy. */
+@utility type-cta {
   font-family: var(--font-serif);
-  font-weight: 400;
-  color: var(--color-navy);
-  line-height: 1.16;
-  letter-spacing: -0.01em;
-  font-size: clamp(2rem, 1.45rem + 1.75vw, 2.75rem); /* 32 → 44px */
+  font-weight: 300;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-size: clamp(2.125rem, 1.6143rem + 2.0953vw, 3.5rem); /* 34px at 390 → 56px at 1440 and up (Figma 38:57) */
 }
-/* Card titles: 20–26px, line-height 125%. */
+/* Card titles: Regular 22–28px, line-height 120–125%. */
 @utility type-h3 {
   font-family: var(--font-serif);
   font-weight: 400;
-  color: var(--color-navy);
-  line-height: 1.25;
+  line-height: 1.22;
 }
-/* Eyebrows: Inter Semi Bold 12, uppercase, tracking 14%, #B23400. */
+/* Hero tagline: Light Italic 24px (20px mobile), navy. */
+@utility type-tagline {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  font-style: italic;
+  color: var(--color-navy);
+  line-height: 1.3;
+  font-size: clamp(1.25rem, 1.1rem + 0.45vw, 1.5rem); /* 20 → 24px */
+}
+/* Lead: Inter 18px / 160% (17px mobile). */
+@utility type-lead {
+  font-size: clamp(1.0625rem, 1rem + 0.2vw, 1.125rem);
+  line-height: 1.6;
+}
+/* Eyebrow: Inter Semi Bold 12px, caps, tracking 0.16em (colour and the 28px rule are set in the component). */
 @utility type-eyebrow {
   font-family: var(--font-sans);
   font-weight: 600;
   font-size: 0.75rem;
   line-height: 1.3;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--color-accent-text);
 }

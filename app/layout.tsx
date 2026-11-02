@@ -6,12 +6,14 @@ import "@fontsource-variable/source-serif-4/opsz-italic.css";
 import "./globals.css";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
+import { StickyBookBar } from "@/components/site/sticky-book-bar";
 import { SITE } from "@/lib/site";
 
 export const metadata: Metadata = {
+  // Each page sets its full SEO title from the v2 copy deck (title.absolute).
   title: {
     default: SITE.name,
-    template: `%s · ${SITE.name}`,
+    template: `%s | ${SITE.name}`,
   },
   description: SITE.description,
   // Pre-launch build: keep out of search indexes until go-live.
@@ -28,7 +30,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className="flex min-h-screen flex-col">
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-[10px] focus:bg-navy focus:px-4 focus:py-3 focus:text-[15px] focus:font-semibold focus:text-white"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-[8px] focus:bg-navy focus:px-4 focus:py-3 focus:text-[15px] focus:font-semibold focus:text-white"
         >
           Skip to main content
         </a>
@@ -37,6 +39,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           {children}
         </main>
         <SiteFooter />
+        <StickyBookBar />
       </body>
     </html>
   );
