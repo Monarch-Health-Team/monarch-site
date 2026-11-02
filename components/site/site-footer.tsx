@@ -1,133 +1,356 @@
-import Link from "next/link";
-import { Plus } from "lucide-react";
-import type { ReactNode } from "react";
-import { LogoLockup } from "@/components/site/logo";
-import { DirectionsLink } from "@/components/ui/actions";
-import { Container } from "@/components/ui/layout";
-import { FOOTER_COLUMNS, LEGAL_LINKS, ROUTES, SITE, type FooterLink } from "@/lib/site";
+import Link from "@/components/site/live-link";
+import { Mail } from "lucide-react";
+import { COMPLIANCE } from "@/lib/compliance";
+import { FOOTER_NAV, LEGAL_NAV } from "@/lib/nav";
+import { SITE } from "@/lib/site";
+import { Container } from "@/components/primitives";
+import { Logo } from "./logo";
+import { StandardsDisclosure } from "./standards-disclosure";
 
-const LAND_ACK =
-  "Monarch Health operates on the traditional, ancestral and unceded territories of the lək̓ʷəŋən-speaking peoples, today known as the Songhees and Esquimalt Nations, and of the W̱SÁNEĆ peoples whose relationships with this land continue to this day.";
-
-// Compliance (handoff notes 1 and 3): follows Julia's final MSP wording once signed off.
-const TRANSPARENCY =
-  "Monarch does not bill the Medical Services Plan (MSP). Fees cover uninsured services only and are itemized in writing before you begin. Insured services remain available through MSP and are not scheduled on a priority basis. Our physicians and nurses are registered with CPSBC and BCCNM. In an emergency, call 911.";
-
-/** Footer links: 15px, 44px tall hit areas (v2 P2-3). Pending destinations are not listed. */
-function LinkList({ links }: { links: FooterLink[] }) {
-  const live = links.filter((l): l is { label: string; href: string } => l.href !== null);
-  return (
-    <ul className="flex flex-col">
-      {live.map((link) => (
-        <li key={link.label}>
-          <Link href={link.href} className="inline-flex min-h-11 items-center text-[15px] leading-[1.5] text-white/95 hover:text-white hover:underline underline-offset-4">
-            {link.label}
-          </Link>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/** Mobile accordion group (v2 P1-9): 48px trigger on a #2A4689 hairline. */
-function FoldGroup({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <details className="group border-b border-navy-line">
-      <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-4 py-3.5 text-[15px] font-semibold text-white [&::-webkit-details-marker]:hidden">
-        <span>{title}</span>
-        <Plus aria-hidden="true" className="size-[18px] shrink-0 text-on-navy transition-transform duration-150 group-open:rotate-45 motion-reduce:transition-none" strokeWidth={1.75} />
-      </summary>
-      <div className="pb-4">{children}</div>
-    </details>
-  );
-}
-
-/*
- * Global footer v2: navy, 96px top and 48px bottom padding at 1440. Brand
- * column 360px (blurb, address, phone, email), three link columns with
- * #AEB9D3 caps headings, a #2A4689 hairline, then the legal notes and the
- * bottom row. On mobile the link groups and legal notes fold into an
- * accordion, with extra bottom room for the sticky Book bar.
+/**
+ * Site footer.
+ *
+ * Carries the five notices that must appear on every page (R4.1 / TC-1.1):
+ * regulation, nurse regulation, fees, enrollment and transparency. All five
+ * render verbatim from lib/compliance.ts. It also names the licensee
+ * responsible for site content, per CPSBC §2.5–2.6 (TC-1.11).
+ *
+ * The notices are rendered in the document on every page but folded behind
+ * a toggle by default (decided 9 Sep 2026, to shrink the footer). They are
+ * still in the DOM, so search engines and screen readers reach them; a
+ * sighted reader clicks the centred heading to open them.
  */
-export function SiteFooter() {
-  const legal = LEGAL_LINKS.filter((l): l is { label: string; href: string } => l.href !== null);
+/**
+ * Brand marks. Lucide v1 removed its brand icon set, so these are inline.
+ * All three are decorative — the accessible name lives on the anchor.
+ */
+function InstagramIcon() {
   return (
-    <footer className="on-navy bg-navy pt-[72px] pb-[112px] text-on-navy md:pb-12 lg:pt-24">
-      <Container className="flex flex-col gap-7 md:gap-14">
-        <div className="flex flex-col gap-10 md:flex-row md:justify-between md:gap-12">
-          <div className="flex max-w-[360px] flex-col gap-5">
-            <Link href={ROUTES.home} className="self-start rounded-md" aria-label="Monarch Health home">
-              <LogoLockup tone="dark" />
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-5"
+    >
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function LinkedinIcon() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-5"
+    >
+      <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-11h4v1.5A5 5 0 0 1 16 8z" />
+      <rect x="2" y="9" width="4" height="12" />
+      <circle cx="4" cy="4" r="2" />
+    </svg>
+  );
+}
+
+/** Facebook's "f", drawn in the same outline style as the two above. */
+function FacebookIcon() {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-5"
+    >
+      <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" />
+    </svg>
+  );
+}
+
+/**
+ * One nav column's heading + list. Extracted so it can be used on its own
+ * (Learn) or stacked two-to-a-slot (everything else) without repeating the
+ * markup.
+ */
+function FooterNavGroup({
+  heading,
+  id = `footer-${heading}`,
+  links,
+  className,
+  continued = false,
+}: {
+  heading: string;
+  /** Needed when the heading has a space: aria-labelledby reads a list of ids. */
+  id?: string;
+  links: { label: string; href: string }[];
+  className?: string;
+  /** The second half of a list that is split in two (Learn, Jeffrey, 20 Oct
+      2026): no visible heading, but the first row lines up with the first
+      half's. It is named for screen readers instead. */
+  continued?: boolean;
+}) {
+  return (
+    <nav
+      aria-labelledby={continued ? undefined : id}
+      aria-label={continued ? `${heading}, continued` : undefined}
+      className={className}
+    >
+      {/* Orange, not navy (client request, 19 Sep 2026: every footer title
+          in orange) — the one deliberate exception to Rule 01 here, since
+          these are labels rather than controls, and it is what makes six
+          short lists read as six distinct sections against a solid navy
+          field. */}
+      {continued ? (
+        <span aria-hidden className="label-mono hidden lg:invisible lg:block">
+          {heading}
+        </span>
+      ) : (
+        <h2 id={id} className="label-mono text-orange-400">
+          {heading}
+        </h2>
+      )}
+      {/* 44px per link (client, 23 Sep 2026), which is WCAG 2.5.5
+          Target Size (Enhanced) at AAA. They were 34px, which already
+          cleared the AA requirement - 2.5.8 asks for 24px, not the 44
+          the rule in globals.css names it after.
+
+          The gap between items goes so the pitch is exactly 44 rather
+          than 48: adjacent targets must not overlap, or a thumb aimed at
+          one link lands on its neighbour, and a taller target that
+          collides is worse than a short one that does not. The lists are
+          the tallest thing in the footer, so this costs 6px per link in
+          footer height. */}
+      <ul className="mt-1">
+        {links.map((link) => (
+          <li key={link.href}>
+            <Link
+              href={link.href}
+              className="flex min-h-11 items-center justify-center text-body-sm text-navy-100 md:justify-start transition-colors duration-brand hover:text-orange-400"
+            >
+              {link.label}
             </Link>
-            <p className="text-[15px] leading-[1.6]">{SITE.description}</p>
-            <address className="flex flex-col text-[15px] leading-[1.7] not-italic">
-              <span className="inline-flex min-h-11 items-center">{SITE.address}</span>
-              <DirectionsLink onNavy className="-mt-2 self-start" />
-              <a href={SITE.phoneHref} className="inline-flex min-h-11 items-center self-start text-white hover:underline underline-offset-4">
-                {SITE.phoneDisplay}
-              </a>
-              <a href={`mailto:${SITE.email}`} className="inline-flex min-h-11 items-center self-start text-white hover:underline underline-offset-4">
-                {SITE.email}
-              </a>
-            </address>
-          </div>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
 
-          <div className="hidden gap-10 md:flex lg:gap-20">
-            {FOOTER_COLUMNS.map((col) => (
-              <nav key={col.title} aria-label={`Footer: ${col.title}`} className="flex flex-col gap-1.5">
-                <h2 className="text-[12px] font-semibold uppercase leading-[1.3] tracking-[0.14em] text-on-navy-muted">{col.title}</h2>
-                <LinkList links={col.links} />
-              </nav>
-            ))}
-          </div>
-        </div>
+export function SiteFooter() {
+  return (
+    <footer className="on-navy border-t-[3px] border-orange-600 bg-navy-950 text-white">
+      {/* pb-[39px], not pt-16's 64px: reduced by 25px below the closing
+          copyright row on 19 Sep 2026 — the row itself already carries
+          visual weight, so it did not need the same 64px the top of the
+          footer does. */}
+      <Container className="pt-8 pb-[20px]">
+        {/* Content-sized columns spaced with justify-between, not four equal
+            grid tracks (client request, 19 Sep 2026): an equal-fr grid gave
+            Membership/Research the same width as Learn, so it sat well
+            short of the right edge with a wide dead gap before it, and
+            Practice/Company had the same problem in the middle. Each column
+            below is only as wide as it needs to be, the brand block anchors
+            the left edge, Membership/Research now anchors the right edge,
+            and justify-between spaces Learn and Practice/Company evenly
+            between the two. Widths are fixed rather than content-driven, so
+            the shape holds however the lists grow.
 
-        {/* Mobile: link groups and legal notes as an accordion. */}
-        <div className="border-t border-navy-line md:hidden">
-          {FOOTER_COLUMNS.map((col) => (
-            <FoldGroup key={col.title} title={col.title}>
-              <nav aria-label={`Footer: ${col.title}`}>
-                <LinkList links={col.links} />
-              </nav>
-            </FoldGroup>
-          ))}
-          <FoldGroup title="Transparency and care standards">
-            <p className="text-[14px] leading-[1.65] text-on-navy-muted" data-compliance="msp-wording">
-              {TRANSPARENCY}
+            Learn (13 links, 594px at 1280) must stay the tallest column.
+            Practice + Company is 5 + 5 = 10 links (504px), Membership +
+            Research 5 + 6 = 11 (548px), For organisations 2 links plus the
+            land acknowledgment (359px; 9 lines at 192px wide), and the
+            brand block 288px (27 Sep 2026). A label that wraps does not
+            add height, because a two-line link still fits the 44px row.
+            The five `lg` widths (240, 192, 128, 160, 192) add up to 912px,
+            which fits the 928px row at 1024. Re-measure whenever a list
+            gains an entry: stacking For organisations under any other group
+            makes that column taller than Learn. */}
+        <div className="flex flex-col gap-5 text-center md:grid md:grid-cols-2 md:text-left md:gap-x-5 md:gap-y-6 lg:flex lg:flex-row lg:flex-wrap lg:items-start lg:justify-between lg:gap-x-0 lg:gap-y-5">
+          {/* lg:gap-x-0 cancels the base gap-10's horizontal contribution:
+              `gap` sets a floor that justify-between must add space on top
+              of, and the base 40px floor was enough, on top of the five
+              fixed widths above, to force an early wrap around 1024–1150px
+              — well before the columns actually ran out of room. With no
+              floor, justify-between alone decides the horizontal spacing,
+              down to the real fit-or-wrap point. */}
+          {/* lg:self-center (client request, 27 Sep 2026): from lg the
+              brand group sits vertically centred against the row, whose
+              height is set by its tallest column, Learn. Below lg it stacks
+              as before. */}
+          <div className="lg:w-60 lg:self-start">
+            <Logo variant="reversed" width={232} tagline="Professional Healthspan Management" className="max-md:ml-0! md:-ml-5" />
+            {/* No top margin here and mt-6 on the icons below (client,
+                27 Sep 2026): the tagline sits right under the logo's
+                clear-space padding (19px from the logo image from md, 8px
+                on phones), with 24px before the icons. No negative margin:
+                the clear space stays intact. */}
+            <p className="text-body-sm text-navy-200 measure-tight max-md:mx-auto">
+              {SITE.region}
             </p>
-          </FoldGroup>
-          <FoldGroup title="Land acknowledgment">
-            <p className="text-[14px] leading-[1.65] text-on-navy-muted">{LAND_ACK}</p>
-          </FoldGroup>
+            <div className="mt-6 flex justify-center gap-2 md:justify-start">
+              <a
+                href={SITE.social.instagram}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-11 items-center justify-center rounded-md border border-white/25 text-white transition-colors duration-brand hover:border-orange-500 hover:text-orange-400"
+                aria-label="Monarch Health on Instagram"
+              >
+                <InstagramIcon />
+              </a>
+              <a
+                href={SITE.social.linkedin}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-11 items-center justify-center rounded-md border border-white/25 text-white transition-colors duration-brand hover:border-orange-500 hover:text-orange-400"
+                aria-label="Monarch Health on LinkedIn"
+              >
+                <LinkedinIcon />
+              </a>
+              <a
+                href={SITE.social.facebook}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex size-11 items-center justify-center rounded-md border border-white/25 text-white transition-colors duration-brand hover:border-orange-500 hover:text-orange-400"
+                aria-label="Monarch Health on Facebook"
+              >
+                <FacebookIcon />
+              </a>
+              <a
+                href={`mailto:${SITE.email}`}
+                className="flex size-11 items-center justify-center rounded-md border border-white/25 text-white transition-colors duration-brand hover:border-orange-500 hover:text-orange-400"
+                aria-label={`Email Monarch Health at ${SITE.email}`}
+              >
+                <Mail aria-hidden className="size-5" />
+              </a>
+            </div>
+
+            {/* Land acknowledgment, under the logo, tagline and icons (Jeffrey,
+                19 Oct 2026; it stood in its own column to the right before). */}
+            <div className="mt-6 text-center md:text-left">
+              <h2 className="label-mono text-orange-400">
+                Land acknowledgment
+              </h2>
+              <p className="mt-1.5 text-body-sm leading-relaxed text-navy-200">
+                Monarch Health operates on the traditional, ancestral and
+                unceded territories of the lək̓ʷəŋən-speaking peoples, today
+                known as the Songhees and Esquimalt Nations, and of the W̱SÁNEĆ
+                peoples whose relationships with this land continue to this day.
+              </p>
+            </div>
+
+            {/* Responsible licensee (CPSBC §2.5–2.6) removed from the
+                footer 2 Oct 2026 at Jeffrey's request, while he clarifies
+                the name/credentials with Dr. Sundren. SITE.responsibleLicensee
+                is left in lib/site.ts so this can go back in one place once
+                confirmed. The site is not yet publicly live (DNS not
+                pointed), so this gap does not currently reach a real
+                visitor. */}
+          </div>
+
+          {/* The nav columns sit together, centred in the space beside the
+              brand block, with equal space round each column (Jeffrey,
+              20 Oct 2026). Below lg the wrapper vanishes and the groups
+              stack as before. */}
+          <div className="contents lg:flex lg:flex-1 lg:items-start lg:justify-evenly">
+            <FooterNavGroup
+              heading="Membership"
+              links={FOOTER_NAV.Membership}
+              className="lg:w-40 lg:self-center"
+            />
+
+            {/* Learn runs in two columns: the first nine topics on the left,
+                the last four on the right with Research beneath them, so
+                the group is no taller than the brand block. */}
+            <div className="lg:grid lg:w-[22rem] lg:grid-cols-2 lg:gap-x-8">
+              <FooterNavGroup
+                heading="Learn"
+                links={FOOTER_NAV.Learn.slice(0, 9)}
+              />
+              <div className="flex flex-col gap-5">
+                <FooterNavGroup
+                  heading="Learn"
+                  continued
+                  links={FOOTER_NAV.Learn.slice(9)}
+                />
+                <FooterNavGroup
+                  heading="Research"
+                  links={FOOTER_NAV.Research}
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-5 lg:w-32">
+              <FooterNavGroup heading="Practice" links={FOOTER_NAV.Practice} />
+              <FooterNavGroup heading="Company" links={FOOTER_NAV.Company} />
+            </div>
+          </div>
         </div>
 
-        <div className="hidden grid-cols-2 gap-16 border-t border-navy-line pt-14 text-[13px] md:grid">
-          <div className="flex flex-col gap-2">
-            <h2 className="font-semibold leading-[1.4] text-white">Land acknowledgment</h2>
-            <p className="leading-[1.65] text-on-navy-muted">{LAND_ACK}</p>
-          </div>
-          <div className="flex flex-col gap-2">
-            <h2 className="font-semibold leading-[1.4] text-white">Transparency and care standards</h2>
-            <p className="leading-[1.65] text-on-navy-muted" data-compliance="msp-wording">
-              {TRANSPARENCY}
+        {/* ---- Mandatory regulatory notices. Verbatim, every page. ----
+            The toggle for these now lives in the bottom line below, and
+            the notices open upward out of it, so the footer carries one
+            row where it used to carry two. See standards-disclosure. */}
+        <StandardsDisclosure
+          fees={
+            /* The one fee and insured-care statement, on every page
+               (Jeffrey, 21 Oct 2026), folded like the notices. The approved
+               D41 wording, from lib/compliance. */
+            <p className="mx-auto max-w-4xl text-center">
+              <span className="font-semibold text-white">
+                {COMPLIANCE.feeBlock.slice(0, COMPLIANCE.feeBlock.indexOf(":") + 1)}
+              </span>
+              {COMPLIANCE.feeBlock.slice(COMPLIANCE.feeBlock.indexOf(":") + 1)}
             </p>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 text-[13px] leading-[1.5] sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-on-navy-muted">© 2026 Monarch Health</p>
-          {legal.length > 0 ? (
-            <ul className="flex flex-wrap gap-x-7">
-              {legal.map((link) => (
-                <li key={link.label}>
-                  <Link href={link.href} className="inline-flex min-h-11 items-center text-on-navy hover:text-white hover:underline underline-offset-4">
+          }
+          notices={
+            /* Columns rather than one stretched line: the notices fill
+               the width, and no line runs past the measure. */
+            <div className="text-columns space-y-4">
+              {/* The five notices were replaced by one statement on
+                  8 Oct 2026 (for legal review). The photography notice
+                  stays: it is required wherever illustrative imagery is
+                  used. */}
+              <p>{COMPLIANCE.transparencyStatement}</p>
+              <p>{COMPLIANCE.modelPhotoDisclaimer}</p>
+            </div>
+          }
+          trailing={
+            /* 44px here too. These sat at 16px, the shortest targets on
+               the page - a line of text with nothing around it. They run
+               horizontally on a 24px gap, so height costs nothing but
+               the row's own height. min-w-11 as well, because "Terms" is
+               only 38px of text and a target is two dimensions. */
+            <ul className="flex flex-wrap justify-center gap-x-6">
+              {LEGAL_NAV.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="flex min-h-11 min-w-11 items-center justify-center transition-colors duration-brand hover:text-orange-400"
+                  >
                     {link.label}
                   </Link>
                 </li>
               ))}
             </ul>
-          ) : null}
-        </div>
+          }
+        >
+          <p className="shrink-0">
+            © {new Date().getFullYear()} {SITE.legalName}. All rights reserved.
+          </p>
+        </StandardsDisclosure>
       </Container>
     </footer>
   );

@@ -1,5 +1,5 @@
 {
-  "name": "monarch-site",
+  "name": "monarch-health",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,26 +7,43 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "typecheck": "next typegen && tsc --noEmit",
-    "check": "pnpm lint && pnpm typecheck && next build && pnpm check:placeholders",
-    "check:placeholders": "node scripts/check-placeholders.mjs"
+    "typecheck": "tsc --noEmit",
+    "check": "eslint && tsc --noEmit && next build"
   },
   "dependencies": {
+    "@fontsource-variable/fraunces": "^5.2.5",
     "@fontsource-variable/inter": "^5.2.5",
-    "@fontsource-variable/source-serif-4": "^5.2.5",
-    "lucide-react": "^1.32.0",
-    "next": "16.4.3",
+    "@supabase/ssr": "^0.12.7",
+    "@supabase/supabase-js": "^2.117.2",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^13.1.1",
+    "gray-matter": "^4.0.3",
+    "lucide-react": "^1.16.0",
+    "next": "16.2.6",
+    "next-mdx-remote": "^6.0.0",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "reading-time": "^1.5.0",
+    "server-only": "^0.0.1",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@axe-core/puppeteer": "^4.13.0",
+    "@eslint/eslintrc": "^3.3.6",
     "@tailwindcss/postcss": "^4",
+    "@tailwindcss/typography": "^0.5.19",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "axe-core": "^4.13.0",
     "eslint": "^9",
-    "eslint-config-next": "16.4.3",
+    "eslint-config-next": "16.2.6",
+    "postgres": "^3.4.9",
+    "puppeteer": "^25.8.0",
     "tailwindcss": "^4",
+    "tsx": "^4.19.2",
     "typescript": "^5"
   }
 }

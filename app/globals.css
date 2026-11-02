@@ -1,176 +1,757 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
-/*
- * Monarch Health design tokens, v2 (Jenny's v2 upgrade, Design system frame
- * 43:102 and section 5 of the v2 spec). Brand colour values are unchanged;
- * the rule is navy for structure, orange #B23400 only for things you can
- * click, and the logo orange #D94000 only inside the logo.
+/**
+ * Monarch Health design system.
+ *
+ * Implements the Monarch Health Brand & Design System v1.0. Every value below
+ * is taken from that document — nothing here is invented, and nothing is
+ * hardcoded outside this file (brand book, Rule 03: "If a value is not in the
+ * token file, it is not in the brand").
+ *
+ * The rule that shapes every component in this codebase is Rule 01, division
+ * of labour:
+ *
+ *     Navy owns STRUCTURE  — headings, navigation, table headers, footers.
+ *     Orange owns INTERACTION — buttons, links, focus, active states.
+ *     If it can be clicked it is orange. If it cannot, it is navy or ink.
+ *
+ * #FF4F00 is retired. It measures 3.30:1 on white and fails AA. The master
+ * orange is #D64000 at 4.57:1. It is not a token, not a tint, not an
+ * exception — if it appears anywhere in this repo, that file predates this
+ * system.
  */
+
 @theme {
-  --color-navy: #00236f; /* structure, headings, icons, footer, authority band */
-  --color-action: #b23400; /* anything clickable */
-  --color-action-hover: #962c00;
-  --color-action-tint: #fff8f3; /* selected radio card */
-  --color-cream: #f3ebdd; /* page base */
-  --color-sand: #e9ddc8; /* at most once a page */
-  --color-line: #e2d6c2; /* hairlines, decorative dividers */
-  --color-field: #8c8070; /* input, select, radio and checkbox borders */
-  --color-body: #4d463e; /* paragraphs */
-  --color-muted: #6b6157; /* meta and helper text */
-  --color-error: #a3261b; /* errors and the urgent notice */
-  --color-error-tint: #fbedea;
-  --color-on-navy: #c8d1e6; /* body text on navy */
-  --color-on-navy-muted: #aeb9d3; /* footer headings and legal notes */
-  --color-navy-line: #2a4689; /* hairlines on navy */
+  /* ---- Monarch Navy — structure ------------------------------------- */
+  --color-navy-50: #f0f6ff;
+  --color-navy-100: #e0eafd;
+  --color-navy-200: #c8dafa;
+  --color-navy-300: #aac5f5;
+  --color-navy-400: #83a8ea;
+  --color-navy-500: #608bda;
+  --color-navy-600: #406dc2; /* 5.02:1  AA  */
+  --color-navy-700: #224fa8; /* 7.63:1  AAA */
+  --color-navy-800: #0c378d;
+  --color-navy-900: #00236e; /* 14.33:1 AAA — the structural colour */
+  --color-navy-950: #00144d;
 
-  --font-serif: "Source Serif 4 Variable", Georgia, "Times New Roman", serif;
-  --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* ---- Monarch Orange — interaction --------------------------------- */
+  --color-orange-50: #fff3ef;
+  --color-orange-100: #ffe5dd;
+  --color-orange-200: #ffd0c2;
+  --color-orange-300: #ffb49e;
+  --color-orange-400: #ff8662;
+  --color-orange-500: #f15a2a;
+  --color-orange-600: #d64000; /* 4.57:1  AA  — the interaction colour */
+  --color-orange-700: #a52e00; /* 7.02:1  AAA */
+  --color-orange-800: #902700;
+  --color-orange-900: #711c00;
+  --color-orange-950: #470d00;
+
+  /* ---- Neutral — tinted toward navy so greys belong to the brand ----- */
+  --color-neutral-50: #f9fafc;
+  --color-neutral-100: #f3f4f7;
+  --color-neutral-200: #e4e6eb;
+  --color-neutral-300: #d1d5db;
+  --color-neutral-400: #adb1ba;
+  --color-neutral-500: #8a8f98;
+  --color-neutral-600: #70757d; /* 4.64:1  AA  */
+  --color-neutral-700: #555961; /* 7.03:1  AAA */
+  --color-neutral-800: #43464d;
+  --color-neutral-900: #303339;
+  --color-neutral-950: #15171b; /* ink */
+
+  /* ---- Status. Never the only signal: always icon + word too. -------- */
+  --color-success-50: #edfaf0;
+  --color-success-600: #088745;
+  --color-success-700: #006732;
+  --color-warning-50: #fbf6e7;
+  --color-warning-600: #8e7300;
+  --color-warning-700: #6c5600; /* gold, so it cannot be read as brand orange */
+  --color-error-50: #fff2f2;
+  --color-error-600: #cf3950;
+  --color-error-700: #ab1e3a;
+  --color-info-50: #eef7ff;
+  --color-info-600: #007ac5;
+  --color-info-700: #005c97;
+
+  /* ---- Type --------------------------------------------------------- */
+  --font-sans:
+    "Louis George Cafe", "Century Gothic", "Questrial", "Segoe UI", system-ui,
+    sans-serif;
+  --font-mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+
+  /* Scale, verbatim from the brand book's type specimen. */
+  --text-display-2xl: 4.75rem;
+  --text-display-2xl--line-height: 5rem;
+  --text-display-2xl--letter-spacing: -0.03em;
+  --text-display-2xl--font-weight: 700;
+
+  --text-display-xl: 3.75rem;
+  --text-display-xl--line-height: 4.125rem;
+  --text-display-xl--letter-spacing: -0.025em;
+  --text-display-xl--font-weight: 700;
+
+  --text-display-lg: 3rem;
+  --text-display-lg--line-height: 3.5rem;
+  --text-display-lg--letter-spacing: -0.02em;
+  --text-display-lg--font-weight: 700;
+
+  --text-heading-1: 2.25rem;
+  --text-heading-1--line-height: 2.75rem;
+  --text-heading-1--letter-spacing: -0.015em;
+  --text-heading-1--font-weight: 700;
+
+  --text-heading-2: 1.875rem;
+  --text-heading-2--line-height: 2.375rem;
+  --text-heading-2--letter-spacing: -0.01em;
+  --text-heading-2--font-weight: 700;
+
+  --text-heading-3: 1.5rem;
+  --text-heading-3--line-height: 2rem;
+  --text-heading-3--letter-spacing: -0.005em;
+  --text-heading-3--font-weight: 600;
+
+  --text-heading-4: 1.25rem;
+  --text-heading-4--line-height: 1.75rem;
+  --text-heading-4--font-weight: 600;
+
+  --text-heading-5: 1.125rem;
+  --text-heading-5--line-height: 1.625rem;
+  --text-heading-5--font-weight: 600;
+
+  --text-body-lg: 1.125rem;
+  --text-body-lg--line-height: 1.875rem;
+  --text-body: 1rem;
+  --text-body--line-height: 1.625rem;
+  --text-body-sm: 0.875rem;
+  --text-body-sm--line-height: 1.375rem;
+
+  --text-label: 0.875rem;
+  --text-label--line-height: 1.25rem;
+  --text-label--letter-spacing: 0.005em;
+  --text-label--font-weight: 600;
+
+  --text-label-sm: 0.75rem;
+  --text-label-sm--line-height: 1rem;
+  --text-label-sm--letter-spacing: 0.01em;
+  --text-label-sm--font-weight: 600;
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.125rem;
+
+  /* ---- Radius. Restrained by design: the butterfly is the only organic
+         form in the identity, so panels must not compete with it. ------- */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+
+  /* ---- Elevation. Tinted with navy-950, never pure black. ------------ */
+  --shadow-xs: 0 1px 2px rgb(0 20 77 / 0.06);
+  --shadow-sm: 0 1px 3px rgb(0 20 77 / 0.08), 0 1px 2px rgb(0 20 77 / 0.04);
+  --shadow-md:
+    0 4px 8px -2px rgb(0 20 77 / 0.1), 0 2px 4px -2px rgb(0 20 77 / 0.06);
+  --shadow-lg:
+    0 12px 20px -4px rgb(0 20 77 / 0.12), 0 4px 8px -4px rgb(0 20 77 / 0.06);
+  --shadow-xl:
+    0 24px 40px -8px rgb(0 20 77 / 0.16), 0 8px 16px -8px rgb(0 20 77 / 0.08);
+
+  /* ---- Motion ------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
 }
 
-/*
- * shadcn/ui theme variables (v2 spec P2-2), mapped to the tokens above so a
- * later move to shadcn components picks up the same values.
- */
-:root {
-  --background: #f3ebdd;
-  --foreground: #4d463e;
-  --primary: #b23400;
-  --primary-foreground: #ffffff;
-  --ring: #00236f;
-  --border: #e2d6c2;
-  --input: #8c8070;
-  --destructive: #a3261b;
-  --radius: 0.5rem;
-  --heading: #00236f;
+/* ------------------------------------------------------------- fonts ---- */
+/* Louis George Cafe — free for personal and commercial use. Self-hosted so
+   the page makes no external font request. The family ships Light, Regular
+   and Bold with italics; there is no Medium or SemiBold, so the 500/600 the
+   UI layer asks for are synthesised by the browser until those cuts are
+   commissioned (brand book, Typography — "what the family actually ships"). */
+@font-face {
+  font-family: "Louis George Cafe";
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/louis-george-cafe-300.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Louis George Cafe";
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/louis-george-cafe-400.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Louis George Cafe";
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url("/fonts/louis-george-cafe-400-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Louis George Cafe";
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url("/fonts/louis-george-cafe-700.woff2") format("woff2");
 }
 
+/* -------------------------------------------------------------- base ---- */
+/* In @layer base so utilities still win. Unlayered rules beat every layered
+   utility in the cascade, which would make `text-white` on a navy section
+   lose to a bare `h2 { color }` — headings then render navy on navy. */
 @layer base {
-  html {
-    -webkit-text-size-adjust: 100%;
-    scroll-behavior: smooth;
-    /*
-     * Keeps anchor targets and keyboard-focused elements clear of the sticky
-     * header (69px below 1280, 89px at 1280+) plus the 2px+3px focus ring,
-     * in both tab directions (WCAG 2.4.11).
-     */
-    scroll-padding-top: 6.5rem;
-    /* Room for the sticky mobile Book bar when tabbing backwards. */
-    scroll-padding-bottom: 6rem;
+  :root {
+    /* Driven by the text-size control in the header. */
+    --font-scale: 1;
+    color-scheme: light;
   }
+
+  html {
+    /* 16px base — the brand's stated minimum for anything a patient reads. */
+    font-size: calc(100% * var(--font-scale));
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    /* WCAG 2.4.11: focus moved up the page, and anchor jumps, stop below the
+       sticky header instead of under it. The value is the bar's own height
+       plus 8px, so the 5px focus ring clears it too. The bar is the taller of
+       its two columns: the controls (2.75rem menu button in 0.375rem padding,
+       plus a 1px rule) and, from sm, the logo (fixed-px artwork with a rem
+       tagline). In rem where the bar is, so it follows the reader's text size
+       (docs/changes/focus-not-obscured). The bar's height is named as
+       --header-h; the hero on / consumes it while the soft-launch banner is
+       on (docs/changes/soft-launch-switch). */
+    --header-h: calc(3.5rem + 1px);
+    @media (width >= 40rem) {
+      --header-h: calc(max(53px + 1.3125rem, 3.5rem + 1px));
+    }
+    @media (width >= 48rem) {
+      --header-h: calc(max(50.7px + 1.3125rem, 3.5rem + 1px));
+    }
+    scroll-padding-top: calc(var(--header-h) + 8px);
+  }
+
+  body {
+    background-color: #ffffff;
+    color: var(--color-neutral-950);
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    line-height: 1.625;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5 {
+    color: var(--color-navy-900);
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* Orange owns focus. 3px ring at 2px offset, per the brand book's controls. */
+  :focus-visible {
+    outline: 3px solid var(--color-orange-600);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* On navy grounds the orange ring loses contrast, so focus goes white there. */
+  .on-navy :focus-visible {
+    outline-color: #ffffff;
+  }
+
+  /* A returning reader can see what they have already opened. Scoped to
+     running text: buttons and navigation keep one colour by design. */
+  .prose a:visited {
+    color: var(--color-orange-800);
+  }
+
+  ::selection {
+    background-color: var(--color-orange-100);
+    color: var(--color-neutral-950);
+  }
+
+  /* WCAG 2.5.8 — 44px minimum target, applied at element level so new
+     components inherit it rather than having to remember. */
+  button,
+  summary,
+  [role="tab"],
+  a[role="button"] {
+    min-height: 44px;
+  }
+
+  /* All five duration tokens collapse to 0ms under reduced motion. In a health
+     product this is not a nicety — motion sensitivity and vestibular disorders
+     are exactly what our users may be managing. */
   @media (prefers-reduced-motion: reduce) {
     html {
       scroll-behavior: auto;
     }
-  }
-  body {
-    background-color: var(--background);
-    color: var(--foreground);
-    font-family: var(--font-sans);
-    font-size: 1rem;
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-  }
-  /* v2 spec 9.2: balanced headings, no one-word last lines in running text. */
-  h1,
-  h2,
-  h3,
-  h4 {
-    color: var(--heading);
-    text-wrap: balance;
-  }
-  p,
-  li,
-  dd,
-  figcaption,
-  caption,
-  blockquote {
-    text-wrap: pretty;
-  }
-  /*
-   * Focus ring (Design system): 2px navy, 3px offset, appears at once (no
-   * transition on outline). White on navy areas.
-   */
-  :focus-visible {
-    outline: 2px solid var(--ring);
-    outline-offset: 3px;
-    border-radius: 4px;
-    transition-property: none;
-  }
-  .on-navy :focus-visible {
-    outline-color: #ffffff;
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-/*
- * Fluid type: each clamp runs linearly from its mobile size at 390px to its
- * spec size at the 1440 design width (Tyler QA, Nov 2), then holds.
+/* --------------------------------------------------------- utilities ---- */
+
+@utility container-page {
+  margin-inline: auto;
+  width: 100%;
+  /* px, not rem: the text-size control must enlarge the text, not zoom the
+     page frame. A rem max-width grows with the root font size and the whole
+     layout inflates instead. */
+  max-width: 1280px;
+  padding-inline: 20px;
+  @media (width >= 40rem) {
+    padding-inline: 32px;
+  }
+  @media (width >= 64rem) {
+    padding-inline: 48px;
+  }
+}
+
+/* Page openers and running copy fill the usable width of the container
+   (Jeffrey, 10 Sep 2026: the 65-character column left the right half of
+   every page empty). Patient instructions still tighten to 52 characters. */
+@utility measure {
+  max-width: none;
+}
+
+@utility measure-tight {
+  max-width: 52ch;
+}
+
+/* Long stacks of running text: fill the width by splitting into columns
+   rather than by stretching the line. Keeps the brand's 65-character measure
+   while leaving no dead space on the right. */
+@utility text-columns {
+  @media (width >= 64rem) {
+    column-count: 2;
+    column-gap: 3.5rem;
+  }
+  & > * {
+    break-inside: avoid;
+  }
+}
+
+/**
+ * Card rows.
+ *
+ * CSS Grid cannot centre a partial last row — five cards in a three-column
+ * grid leave the last two hard against the left edge. Flex wrap with
+ * justify-content:center does, while producing the same layout when a row is
+ * full. Basis is computed from the gap so the columns line up exactly as the
+ * grid did.
  */
-/* H1: Source Serif 4 Light 68px, line-height 104%, tracking -2% (42px mobile). */
-@utility type-h1 {
-  font-family: var(--font-serif);
-  font-weight: 300;
-  line-height: 1.04;
-  letter-spacing: -0.02em;
-  font-size: clamp(2.625rem, 2.0215rem + 2.4762vw, 4.25rem); /* 42px at 390 → 68px at 1440 and up */
+@utility card-row-2 {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.25rem;
+  & > * {
+    flex: 0 1 100%;
+  }
+  @media (width >= 48rem) {
+    & > * {
+      flex-basis: calc((100% - 1.25rem) / 2);
+    }
+  }
 }
-/* Inner-page hero H1 in the v2 frames: Light 60px, line-height 106%. */
-@utility type-h1-page {
-  font-family: var(--font-serif);
-  font-weight: 300;
-  line-height: 1.06;
-  letter-spacing: -0.02em;
-  font-size: clamp(2.625rem, 2.2072rem + 1.7143vw, 3.75rem); /* 42px at 390 → 60px at 1440 and up */
+
+@utility card-row-3 {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.25rem;
+  & > * {
+    flex: 0 1 100%;
+  }
+  @media (width >= 40rem) {
+    & > * {
+      flex-basis: calc((100% - 1.25rem) / 2);
+    }
+  }
+  @media (width >= 64rem) {
+    & > * {
+      flex-basis: calc((100% - 2.5rem) / 3);
+    }
+  }
 }
-/* H2: Light 48px, line-height 112%, tracking -1.5% (32px mobile). */
-@utility type-h2 {
-  font-family: var(--font-serif);
-  font-weight: 300;
-  line-height: 1.12;
-  letter-spacing: -0.015em;
-  font-size: clamp(2rem, 1.6286rem + 1.5239vw, 3rem); /* 32px at 390 → 48px at 1440 and up */
+
+@utility card-row-4 {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1rem;
+  & > * {
+    flex: 0 1 100%;
+  }
+  @media (width >= 40rem) {
+    & > * {
+      flex-basis: calc((100% - 1rem) / 2);
+    }
+  }
+  @media (width >= 64rem) {
+    & > * {
+      flex-basis: calc((100% - 3rem) / 4);
+    }
+  }
 }
-/* H2 on the navy band: Light 44px. */
-@utility type-h2-band {
-  font-family: var(--font-serif);
-  font-weight: 300;
-  line-height: 1.12;
-  letter-spacing: -0.015em;
-  font-size: clamp(2rem, 1.7215rem + 1.1429vw, 2.75rem); /* 32px at 390 → 44px at 1440 and up */
+
+/* The brand's interaction timing: quick enough to feel immediate, slow
+   enough that a colour change is a change and not a flicker. */
+@utility duration-brand {
+  transition-duration: 80ms;
 }
-/* Closing CTA headline: Light 56px at 1440 (Figma 38:57; Doc range 52–56), centred, navy. */
-@utility type-cta {
-  font-family: var(--font-serif);
-  font-weight: 300;
-  line-height: 1.1;
-  letter-spacing: -0.02em;
-  font-size: clamp(2.125rem, 1.6143rem + 2.0953vw, 3.5rem); /* 34px at 390 → 56px at 1440 and up (Figma 38:57) */
+
+/* The only other duration: an image easing under a card on hover. */
+@utility duration-media {
+  transition-duration: 500ms;
 }
-/* Card titles: Regular 22–28px, line-height 120–125%. */
-@utility type-h3 {
-  font-family: var(--font-serif);
-  font-weight: 400;
-  line-height: 1.22;
+
+/* A lazy dissolve between photographs, slow enough to be seen as one. */
+@utility duration-dissolve {
+  transition-duration: 900ms;
 }
-/* Hero tagline: Light Italic 24px (20px mobile), navy. */
-@utility type-tagline {
-  font-family: var(--font-serif);
-  font-weight: 300;
-  font-style: italic;
-  color: var(--color-navy);
-  line-height: 1.3;
-  font-size: clamp(1.25rem, 1.1rem + 0.45vw, 1.5rem); /* 20 → 24px */
+
+/* WCAG 2.5.8 minimum target, for controls that are not <button>s. */
+@utility target-min {
+  min-height: 44px;
 }
-/* Lead: Inter 18px / 160% (17px mobile). */
-@utility type-lead {
-  font-size: clamp(1.0625rem, 1rem + 0.2vw, 1.125rem);
-  line-height: 1.6;
+
+/* The mega menu slides down from behind the bar. */
+@keyframes menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-/* Eyebrow: Inter Semi Bold 12px, caps, tracking 0.16em (colour and the 28px rule are set in the component). */
-@utility type-eyebrow {
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 0.75rem;
-  line-height: 1.3;
-  letter-spacing: 0.16em;
+@utility animate-menu-in {
+  animation: menu-in 200ms ease-out both;
+}
+
+/* Switching between menus: the outgoing section dissolves over the
+   incoming one while the panel eases to its new height. */
+@keyframes menu-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes menu-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@utility animate-menu-fade-in {
+  animation: menu-fade-in 400ms ease-out both;
+}
+@utility animate-menu-fade-out {
+  animation: menu-fade-out 400ms ease-out both;
+}
+
+/**
+ * The spans band's reach.
+ *
+ * The healthy part used to grow on hover and shrink back when the
+ * pointer left. It runs on its own now (client, 23 Sep 2026), and the
+ * return is the reason it is two keyframes rather than a transition
+ * that reverses: a bar sliding BACK down the track reads as ground
+ * being lost, which is the opposite of what the drawing says. So the
+ * grown bar dissolves at the far end, the static one behind it is
+ * revealed unchanged, and the butterfly reappears at the start to pull
+ * again. Nothing ever retreats on screen.
+ *
+ * The timeline, over 5200ms: sweep out to 72%, hold and dissolve to
+ * 80%, reset to the start while invisible, wait, then fade back in at
+ * 100%. The sweep alone carries the ease; the rest is linear, or the
+ * dissolve inherits an easing meant for travel.
+ *
+ * 3750ms of travel, against 1875 when it was a hover: half the peak
+ * speed, as asked. Both keyframes share the timeline exactly - the
+ * butterfly sits at the bar's point, and a frame of disagreement shows.
+ *
+ * The 24px the bar stops short of the end, and the 22px the butterfly
+ * stops short of, are one number and its two uses: the butterfly is
+ * about that wide, so the bar leaves it room rather than reaching the
+ * rail and putting the butterfly on top of its own chevron. They were a
+ * WING constant in spans-band.tsx until the reach moved here; keep the
+ * two in step, and keep the 2px between them, which is the daylight
+ * past the point.
+ */
+@keyframes span-reach {
+  0% {
+    width: 60%;
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+  }
+  72% {
+    width: calc(100% - 24px);
+    opacity: 1;
+    animation-timing-function: linear;
+  }
+  80% {
+    width: calc(100% - 24px);
+    opacity: 0;
+  }
+  81% {
+    width: 60%;
+    opacity: 0;
+  }
+  91% {
+    width: 60%;
+    opacity: 0;
+  }
+  100% {
+    width: 60%;
+    opacity: 1;
+  }
+}
+@keyframes span-butterfly {
+  0% {
+    left: calc(60% + 2px);
+    opacity: 1;
+    animation-timing-function: cubic-bezier(0.42, 0, 0.58, 1);
+  }
+  72% {
+    left: calc(100% - 22px);
+    opacity: 1;
+    animation-timing-function: linear;
+  }
+  80% {
+    left: calc(100% - 22px);
+    opacity: 0;
+  }
+  81% {
+    left: calc(60% + 2px);
+    opacity: 0;
+  }
+  91% {
+    left: calc(60% + 2px);
+    opacity: 0;
+  }
+  100% {
+    left: calc(60% + 2px);
+    opacity: 1;
+  }
+}
+@utility animate-span-reach {
+  animation: span-reach 5200ms infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@utility animate-span-butterfly {
+  animation: span-butterfly 5200ms infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+/* Every column of figures, every price, every dose. */
+@utility tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Uppercase without tracking looks broken — the brand sets it at +0.10em.
+   This is the only label-mono definition; every uppercase label uses it or
+   `tracking-widest`, which is the same 0.10em. */
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
+  /* Renamed from `overline` to `label-mono` on 19 Sep 2026: that name
+     collided with Tailwind's own core utility of the same name, which sets
+     text-decoration-line: overline — a real line drawn above the glyphs,
+     hugging the text width. That collision is what kept putting a line
+     above every eyebrow, card kicker and mono label sitewide, through
+     several rounds of removing unrelated border-t rules that were never
+     the actual cause. Never name a custom utility `overline`, `underline`
+     or `line-through` — those are reserved Tailwind core utility names. */
+}
+
+/**
+ * Background washes. Decoration stays in navy tints (structure), never orange
+ * (interaction), so a wash can sit behind anything without breaking Rule 01.
+ * They are gradients rather than images so they cost nothing to load and
+ * print as flat colour.
+ */
+@utility wash-radial-tr {
+  background-image: radial-gradient(
+    60% 55% at 100% 0%,
+    var(--color-navy-100) 0%,
+    transparent 70%
+  );
+}
+
+@utility wash-radial-bl {
+  background-image: radial-gradient(
+    55% 60% at 0% 100%,
+    var(--color-navy-100) 0%,
+    transparent 70%
+  );
+}
+
+@utility wash-radial-both {
+  background-image:
+    radial-gradient(
+      50% 50% at 100% 0%,
+      var(--color-navy-100) 0%,
+      transparent 70%
+    ),
+    radial-gradient(
+      45% 55% at 0% 100%,
+      var(--color-navy-50) 0%,
+      transparent 70%
+    );
+}
+
+/* Hairline grid, faint, for a section that wants texture without a photograph. */
+@utility wash-grid {
+  background-image:
+    linear-gradient(
+      to right,
+      color-mix(in srgb, var(--color-navy-900) 6%, transparent) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--color-navy-900) 6%, transparent) 1px,
+      transparent 1px
+    );
+  background-size: 48px 48px;
+  mask-image: radial-gradient(70% 70% at 50% 50%, black 30%, transparent 100%);
+}
+
+/* ------------------------------------------------------------------ *
+ * The hero line, dissolving in.
+ *
+ * CSS rather than framer-motion, and the reason matters. The framer
+ * version rendered its `initial` state into the server HTML, so the
+ * page's only h1 sat at opacity 0 through the whole hydration window —
+ * a blank hero on a slow connection, and a permanently blank one if the
+ * JS never arrived. A keyframe runs at first paint with no script at
+ * all, and `both` holds the start state through the delay so the pieces
+ * can be staggered.
+ *
+ * The blur is what makes it read as the words resolving out of the
+ * photograph behind them rather than sliding on from off-screen; the
+ * lift and the scale are small enough to settle rather than to move.
+ * ------------------------------------------------------------------ */
+@keyframes dissolve-in {
+  from {
+    opacity: 0;
+    filter: blur(14px);
+    transform: translateY(10px) scale(1.03);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: none;
+  }
+}
+
+@utility dissolve-in {
+  animation: dissolve-in 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dissolve-in {
+    animation: none;
+  }
+}
+
+/* Buttons centred on phones (client request, 25 Sep 2026: "the orange
+   button and every other button ... center-aligned in mobile view").
+   One rule rather than fifty edits: `.btn` is on every Button and
+   ButtonLink (components/primitives), and each rule centres a button in
+   whatever kind of container holds it. Below the `sm` breakpoint only;
+   from 40rem up, every layout is exactly as it was. Unlayered on purpose,
+   so it wins over a container's own justify-start/justify-end utility. */
+@media (width < 40rem) {
+  .flex:has(> .btn),
+  .inline-flex:has(> .btn) {
+    justify-content: center;
+  }
+  .flex-col:has(> .btn) {
+    align-items: center;
+  }
+  .grid:has(> .btn) {
+    justify-items: center;
+  }
+  :not(.flex, .inline-flex, .grid) > .btn {
+    display: flex;
+    width: fit-content;
+    margin-inline: auto;
+  }
+}
+
+/* Centred pages (Jeffrey, 21 Oct 2026: the Research pages and About are
+   centre-aligned, titles and contents). One wrapper, set in the section's
+   layout, rather than an edit to every block. Unlayered so it wins over
+   utilities. Photo heroes keep their words on the left over the white wash,
+   and breadcrumbs stay at the start of the line. */
+.centered-page :where(h1, h2, h3, h4, h5, h6, p, li, dt, dd, figcaption, blockquote) {
+  text-align: center;
+}
+.centered-page :where(.measure, .measure-tight, .max-w-prose) {
+  margin-inline: auto;
+}
+.centered-page dl > div {
+  grid-template-columns: 1fr;
+  justify-items: center;
+}
+.centered-page .card-hit {
+  align-self: center;
+}
+.centered-page :where(.flex-wrap, .card-row-3) {
+  justify-content: center;
+}
+.centered-page nav ol {
+  justify-content: flex-start;
+}
+/* Numbered and bulleted lists keep their lines left-aligned so the markers
+   and the words line up down the list (Jeffrey, 21 Oct 2026); the block
+   itself stays centred on the page. */
+.centered-page .list-block {
+  margin-inline: auto;
+}
+.centered-page .list-block,
+.centered-page .list-block :where(li, dt, dd, p, span, h2, h3, div) {
+  text-align: left;
+}
+/* Anything with a width cap sits in the middle of the page: lists, callouts,
+   notices. The photo hero keeps its own column. */
+.centered-page :where(ol, ul, dl, div, p)[class*="max-w"]:not(.photo-hero *) {
+  margin-inline: auto;
+}
+.centered-page .photo-hero :where(h1, h2, h3, p, li, div, span),
+.centered-page nav :where(ol, li, a, span) {
+  text-align: left;
 }
