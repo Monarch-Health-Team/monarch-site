@@ -1,0 +1,78 @@
+name: QA
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      # The repo is locked with pnpm-lock.yaml (no package-lock.json), so the
+      # frozen-lockfile install is the equivalent of `npm ci`.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: pnpm run --if-present lint
+
+      - name: Build
+        id: build
+        run: pnpm run build
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Playwright (pages, links, forms, screenshots, axe)
+        id: e2e
+        run: pnpm run test:e2e
+
+      - name: Lighthouse CI
+        id: lhci
+        run: pnpm exec lhci autorun
+
+      - name: Job summary
+        if: always()
+        run: |
+          icon() { case "$1" in success) echo "PASS";; skipped) echo "SKIPPED";; *) echo "FAIL";; esac; }
+          {
+            echo "## QA summary"
+            echo ""
+            echo "| Check | Result |"
+            echo "| --- | --- |"
+            echo "| Lint | $(icon '${{ steps.lint.outcome }}') |"
+            echo "| Build | $(icon '${{ steps.build.outcome }}') |"
+            echo "| Playwright + axe (mobile 390x844, desktop 1440x900) | $(icon '${{ steps.e2e.outcome }}') |"
+            echo "| Lighthouse CI (perf>=85, a11y>=95, best-practices>=90, SEO>=90) | $(icon '${{ steps.lhci.outcome }}') |"
+            echo ""
+            echo "Playwright report, screenshots and Lighthouse results are attached as artifacts."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-artifacts
+          path: qa-artifacts/
+          if-no-files-found: ignore
