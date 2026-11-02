@@ -80,6 +80,7 @@
   --font-sans:
     "Louis George Cafe", "Century Gothic", "Questrial", "Segoe UI", system-ui,
     sans-serif;
+  --font-serif: "Fraunces Variable", Georgia, "Times New Roman", serif;
   --font-mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
 
   /* Scale, verbatim from the brand book's type specimen. */

@@ -334,7 +334,6 @@ export function SiteHeader() {
             alt=""
             width={320}
             height={280}
-            priority
           />
         ))}
       </div>
