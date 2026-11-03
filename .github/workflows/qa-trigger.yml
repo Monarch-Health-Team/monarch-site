@@ -1,9 +1,9 @@
 name: QA trigger
-# Starts QA as jeffreyjoju when an agent pull request is ready,
+# Starts QA as jeffreyjoju on every agent pull request push, drafts included,
 # because GitHub holds QA runs from agent pushes for approval.
 on:
   pull_request_target:
-    types: [ready_for_review, synchronize]
+    types: [opened, ready_for_review, synchronize]
 permissions:
   contents: read
 concurrency:
@@ -12,7 +12,6 @@ concurrency:
 jobs:
   dispatch:
     if: >-
-      github.event.pull_request.draft == false &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'claude/')
     runs-on: ubuntu-latest
