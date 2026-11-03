@@ -13,6 +13,9 @@ name: Claude build
 # workflows (so QA is called directly, and nothing waits for approval).
 # Branches use the cc/ prefix. Nothing in this flow calls an outside webhook; results are the PR
 # comment, the labels and the "QA (Claude loop)" commit status.
+# PR title: "[WIP] " is put in front while this run's build/QA/fix loop works (wip-on for an
+# existing PR, wip-new as soon as a build opens its PR) and removed in report (if: always()).
+# These steps never fail the run.
 on:
   issues:
     types: [labeled]
@@ -110,6 +113,35 @@ jobs:
             gh api -X POST "repos/$REPO/issues/$NUM/reactions" -f content=eyes >/dev/null
           fi
 
+  # [WIP] on an already-open PR (/claude fix, review-dispatched fix), in parallel with the agent.
+  wip-on:
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: write
+    steps:
+      - name: Mark PR title [WIP]
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.gate.outputs.pr }}
+          BRANCH: ${{ needs.gate.outputs.branch }}
+        run: |
+          [ -n "$PR" ] || PR=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -z "$PR" ]; then echo "No open PR yet; nothing to mark."; exit 0; fi
+          title=$(gh pr view "$PR" --repo "$REPO" --json title --jq '.title' 2>/dev/null || true)
+          if [ -z "$title" ]; then echo "PR #$PR not found; skipping."; exit 0; fi
+          case "$title" in
+            "[WIP]"*) echo "PR #$PR already marked [WIP]." ;;
+            *) { gh pr edit "$PR" --repo "$REPO" --title "[WIP] $title" >/dev/null \
+                 || gh api -X PATCH "repos/$REPO/pulls/$PR" -f title="[WIP] $title" >/dev/null; } \
+                 && echo "Marked PR #$PR [WIP]." || true ;;
+          esac
+
   start:
     needs: gate
     uses: ./.github/workflows/claude-agent.yml
@@ -121,6 +153,36 @@ jobs:
       instructions: ${{ needs.gate.outputs.instructions }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+
+  # First build: the PR only exists once start has opened it; mark it right away (runs alongside qa1).
+  wip-new:
+    needs: [gate, start]
+    if: needs.gate.outputs.mode == 'build' && needs.start.outputs.pr_number != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: write
+    steps:
+      - name: Mark PR title [WIP]
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.start.outputs.pr_number }}
+          BRANCH: ${{ needs.gate.outputs.branch }}
+        run: |
+          [ -n "$PR" ] || PR=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -z "$PR" ]; then echo "No open PR yet; nothing to mark."; exit 0; fi
+          title=$(gh pr view "$PR" --repo "$REPO" --json title --jq '.title' 2>/dev/null || true)
+          if [ -z "$title" ]; then echo "PR #$PR not found; skipping."; exit 0; fi
+          case "$title" in
+            "[WIP]"*) echo "PR #$PR already marked [WIP]." ;;
+            *) { gh pr edit "$PR" --repo "$REPO" --title "[WIP] $title" >/dev/null \
+                 || gh api -X PATCH "repos/$REPO/pulls/$PR" -f title="[WIP] $title" >/dev/null; } \
+                 && echo "Marked PR #$PR [WIP]." || true ;;
+          esac
 
   qa1:
     needs: [gate, start]
@@ -182,7 +244,7 @@ jobs:
       ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
 
   report:
-    needs: [gate, start, qa1, fix1, qa2, fix2, qa3]
+    needs: [gate, wip-on, start, wip-new, qa1, fix1, qa2, fix2, qa3]
     if: always() && needs.gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -237,6 +299,28 @@ jobs:
             # Shows on the PR as a check, since GITHUB_TOKEN pushes don't start qa.yml on their own.
             gh api -X POST "repos/$REPO/statuses/$sha" -f state="$state" -f context="QA (Claude loop)" \
               -f target_url="$RUN_URL" -f description="$([ "$state" = success ] && echo passed || echo 'failed after fix rounds')" >/dev/null
+          fi
+
+      - name: Remove [WIP] from PR title
+        if: always()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ needs.start.outputs.pr_number || needs.gate.outputs.pr }}
+          BRANCH: ${{ needs.gate.outputs.branch }}
+        run: |
+          [ -n "$PR" ] || PR=$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number --jq '.[0].number // empty' 2>/dev/null || true)
+          if [ -z "$PR" ]; then echo "No open PR; nothing to clean."; exit 0; fi
+          title=$(gh pr view "$PR" --repo "$REPO" --json title --jq '.title' 2>/dev/null || true)
+          clean="$title"
+          while [[ "$clean" == "[WIP]"* ]]; do clean="${clean#\[WIP\]}"; clean="${clean# }"; done
+          if [ -n "$title" ] && [ -n "$clean" ] && [ "$clean" != "$title" ]; then
+            { gh pr edit "$PR" --repo "$REPO" --title "$clean" >/dev/null \
+              || gh api -X PATCH "repos/$REPO/pulls/$PR" -f title="$clean" >/dev/null; } \
+              && echo "Removed [WIP] from PR #$PR." || true
+          else
+            echo "PR #$PR title has no [WIP]; nothing to do."
           fi
 
   # Claude review: only after QA passed, in this same run (so it needs no trigger, approval or extra
