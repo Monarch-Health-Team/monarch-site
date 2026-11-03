@@ -8,7 +8,9 @@ name: Claude build
 # Only people with write access can start it. Everything is chained in this one
 # workflow because pushes/PRs made with GITHUB_TOKEN don't trigger other
 # workflows (so QA is called directly, and nothing waits for approval).
-# Branches use the cc/ prefix so the box QA mirror (claude/* only) ignores them.
+# Branches use the cc/ prefix (not claude/), so the box QA mirror's held-run auto-start, which acts only
+# on claude/*, leaves them alone. The mirror pings Tyler about Claude build runs separately
+# (claude_build_started / claude_build_finished).
 on:
   issues:
     types: [labeled]
@@ -100,7 +102,8 @@ jobs:
       branch: ${{ needs.gate.outputs.branch }}
       round: "0"
       instructions: ${{ needs.gate.outputs.instructions }}
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
   qa1:
     needs: start
@@ -119,7 +122,8 @@ jobs:
       branch: ${{ needs.gate.outputs.branch }}
       round: "1"
       qa_summary: ${{ needs.qa1.outputs.summary }}
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
   qa2:
     needs: fix1
@@ -138,7 +142,8 @@ jobs:
       branch: ${{ needs.gate.outputs.branch }}
       round: "2"
       qa_summary: ${{ needs.qa2.outputs.summary }}
-    secrets: inherit
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
   qa3:
     needs: fix2

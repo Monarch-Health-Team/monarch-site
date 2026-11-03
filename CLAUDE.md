@@ -1,6 +1,9 @@
 # Team rules for coding agents
 
-- Never push to or target `main`. Work only on your own branch and open a draft pull request.
+Project: Monarch Health marketing site (Next.js + Tailwind, pnpm), deployed on Vercel.
+
+- Never push to or target `main`. Work only on a branch. In the `claude-build` workflow you only edit files;
+  its publish job (not you) commits, pushes the `cc/issue-N` branch and opens a normal (non-draft) pull request.
 - Stack: Next.js + Tailwind, mobile-first, WCAG 2.2 AA.
 - Design specs come from Google Stitch HTML/Tailwind exports linked in the issue.
 - Keep changes scoped to the issue. Do not add new dependencies without saying why in the PR.

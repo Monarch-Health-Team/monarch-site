@@ -87,12 +87,16 @@ jobs:
         env:
           QA_SUMMARY: ${{ inputs.qa_summary }}
           INSTRUCTIONS: ${{ inputs.instructions }}
+          REPO_DESCRIPTION: ${{ vars.CLAUDE_REPO_DESCRIPTION }}
         run: |
+          PROJECT="$REPO_DESCRIPTION"
+          [ -n "$PROJECT" ] || PROJECT=$(sed -n 's/^Project: *//p' CLAUDE.md 2>/dev/null | head -n1)
+          [ -n "$PROJECT" ] || PROJECT="$REPO"
           title=$(gh api "repos/$REPO/issues/$NUM" --jq '.title')
           body=$(gh api "repos/$REPO/issues/$NUM" --jq '.body // ""')
           {
             if [ "$MODE" = build ]; then
-              echo "Implement GitHub issue #$NUM in this repository (Monarch Health marketing site)."
+              echo "Implement GitHub issue #$NUM in this repository ($PROJECT)."
               echo
               echo "Title: $title"
               echo
