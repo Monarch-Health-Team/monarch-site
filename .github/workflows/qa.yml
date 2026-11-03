@@ -37,6 +37,14 @@ defaults:
 
 jobs:
   qa:
+    # Skip the standalone pull_request run on Claude-build PRs (cc/*) opened and pushed by
+    # github-actions[bot]: QA already ran inside "Claude build" (this file via workflow_call).
+    # Still runs when called from Claude build, on manual dispatch, and when a person pushes to cc/*.
+    if: >-
+      !(github.event_name == 'pull_request' &&
+        startsWith(github.head_ref, 'cc/') &&
+        github.event.pull_request.user.login == 'github-actions[bot]' &&
+        github.actor == 'github-actions[bot]')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     outputs:
