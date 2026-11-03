@@ -138,7 +138,7 @@ export default function HomePage() {
   const recent = getAllPosts().slice(0, 3);
 
   return (
-    <>
+    <div className="home-deferred">
       {/* ============================================== 1. hero — HM-1, HM-2 */}
       <section
         aria-labelledby="home-hero-title"
@@ -1011,6 +1011,6 @@ export default function HomePage() {
         </section>
       )}
 
-    </>
+    </div>
   );
 }

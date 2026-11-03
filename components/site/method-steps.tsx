@@ -84,9 +84,9 @@ export function MethodSteps({
   const [anchor, setAnchor] = React.useState<number | null>(null);
   /** Which step's words belong in it. */
   const [current, setCurrent] = React.useState(0);
-  /** Which step's words are painted, and whether they are lit. */
+  /** Which step's words are painted. They are lit while they are the ones wanted. */
   const [shown, setShown] = React.useState(0);
-  const [lit, setLit] = React.useState(true);
+  const lit = current === shown;
   const [onArrow, setOnArrow] = React.useState<-1 | 1 | null>(null);
   const paneId = React.useId();
 
@@ -94,7 +94,6 @@ export function MethodSteps({
     setAnchor(i);
     setCurrent(i);
     setShown(i);
-    setLit(true);
   };
 
   const close = () => {
@@ -114,11 +113,7 @@ export function MethodSteps({
    */
   React.useEffect(() => {
     if (current === shown) return;
-    setLit(false);
-    const t = setTimeout(() => {
-      setShown(current);
-      setLit(true);
-    }, SWAP_MS);
+    const t = setTimeout(() => setShown(current), SWAP_MS);
     return () => clearTimeout(t);
   }, [current, shown]);
 

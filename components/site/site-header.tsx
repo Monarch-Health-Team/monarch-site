@@ -1,19 +1,23 @@
 "use client";
 
 import { useState, useEffect, useLayoutEffect, useRef } from "react";
+import dynamic from "next/dynamic";
 import Link from "@/components/site/live-link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu, X, ChevronDown } from "lucide-react";
-import {
-  PRIMARY_NAV,
-  type NavSection,
-  type NavLink,
-} from "@/lib/nav";
+import type { NavBarItem } from "./nav-bar-data";
 import { Logo } from "./logo";
+import { activeHref, pathOf } from "./nav-active";
 import { HeaderSearchLink } from "./header-search-link";
 import { cn } from "@/lib/utils";
 import { SOFT_LAUNCH_ON } from "@/lib/soft-launch";
+
+/* The mega menu is only ever needed after the reader reaches for a trigger,
+   so it is its own chunk, fetched shortly after load (see below) or on
+   the first pointer or focus near the bar. ssr: false because it is never
+   open in the server HTML. */
+const loadMegaMenu = () => import("./mega-menu");
+const MegaMenu = dynamic(loadMegaMenu, { ssr: false });
 
 /**
  * One style for every primary link, so the bar reads as a single row rather
@@ -21,42 +25,6 @@ import { SOFT_LAUNCH_ON } from "@/lib/soft-launch";
  * and go orange on hover. `overlay` swaps the palette for the transparent bar
  * over the hero.
  */
-/** The path part of a nav href: no #fragment, no ?query. */
-const pathOf = (href: string) => href.split("#")[0].split("?")[0] || "/";
-
-/** How well a nav href matches the current path: 0 for not at all, else the length of the match. */
-function matchLength(pathname: string, href: string): number {
-  const p = pathOf(href);
-  if (p === "/") return pathname === "/" ? 1 : 0;
-  return pathname === p || pathname.startsWith(`${p}/`) ? p.length : 0;
-}
-
-/**
- * Which entry inside a section is the page the reader is on: the one whose
- * href is the longest match for the current path, so "/healthspan/nutrition"
- * lights its own entry rather than the "all topics" entry above it.
- * Null when the reader is not on any of them.
- */
-function activeHrefIn(item: NavSection, pathname: string): string | null {
-  if (!item.children) return null;
-  const all: string[] = [];
-  for (const c of item.children) {
-    all.push(c.href);
-    for (const sb of c.sub ?? []) all.push(sb.href);
-  }
-  for (const l of item.secondary?.links ?? []) all.push(l.href);
-  let best: string | null = null;
-  let bestLen = 0;
-  for (const href of all) {
-    const len = matchLength(pathname, href);
-    if (len > bestLen) {
-      best = href;
-      bestLen = len;
-    }
-  }
-  return best;
-}
-
 function navLinkClass(active: boolean, overlay: boolean) {
   return cn(
     "flex target-min items-center gap-1 whitespace-nowrap rounded-md px-3 py-2 text-label transition-colors duration-brand",
@@ -70,7 +38,7 @@ function navLinkClass(active: boolean, overlay: boolean) {
   );
 }
 
-export function SiteHeader() {
+export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const pathname = usePathname();
@@ -85,7 +53,7 @@ export function SiteHeader() {
    */
   const isHome = pathname === "/";
   const overlay: boolean = false;
-  const openItem = PRIMARY_NAV.find((i) => i.label === openMenu && i.children);
+  const openItem = nav.find((i) => i.label === openMenu && i.children);
 
   /*
    * Moving from one menu to the next: the panel stays mounted, its height
@@ -93,12 +61,12 @@ export function SiteHeader() {
    * incoming one. `prevItem` is the section on its way out, kept for the
    * length of the fade.
    */
-  const [prevItem, setPrevItem] = useState<NavSection | null>(null);
-  const lastOpenRef = useRef<NavSection | null>(null);
+  const [prevItem, setPrevItem] = useState<string | null>(null);
+  const lastOpenRef = useRef<string | null>(null);
   useEffect(() => {
     const last = lastOpenRef.current;
-    lastOpenRef.current = openItem ?? null;
-    if (openItem && last && last !== openItem) {
+    lastOpenRef.current = openItem?.label ?? null;
+    if (openItem && last && last !== openItem.label) {
       setPrevItem(last);
       const t = window.setTimeout(() => setPrevItem(null), 400);
       return () => window.clearTimeout(t);
@@ -106,21 +74,23 @@ export function SiteHeader() {
     if (!openItem) setPrevItem(null);
   }, [openItem]);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [panelHeight, setPanelHeight] = useState<number | undefined>(undefined);
-  useLayoutEffect(() => {
-    if (openItem && contentRef.current) {
-      setPanelHeight(Math.max(280, contentRef.current.offsetHeight));
-    } else {
-      setPanelHeight(undefined);
-    }
-  }, [openItem]);
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
 
-  // Close everything on navigation.
+  // Fetch the menu chunk when the reader first reaches for the header (the
+  // handlers on <header>), or failing that well after the page has settled,
+  // so nothing competes with the first screen or its hydration.
   useEffect(() => {
+    const id = window.setTimeout(() => void loadMegaMenu(), 8000);
+    return () => window.clearTimeout(id);
+  }, []);
+
+  // Close everything on navigation, by resetting during render.
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
     setMobileOpen(false);
     setOpenMenu(null);
-  }, [pathname]);
+  }
 
   // Escape closes whichever surface is open, and returns focus to its trigger
   // rather than dropping it to the document (TC-3.9).
@@ -299,13 +269,15 @@ export function SiteHeader() {
     href === "/" ? pathname === "/" : pathname.startsWith(href);
   /* A section is selected when the reader is on its own page or on any page
      listed in its menu, so a sub page keeps its parent selected too. */
-  const isSectionActive = (item: NavSection) =>
-    isActive(item.href) || activeHrefIn(item, pathname) !== null;
+  const isSectionActive = (item: NavBarItem) =>
+    isActive(item.href) || activeHref(item.hrefs, pathname) !== null;
 
   return (
     <header
       ref={headerRef}
       data-overlay={overlay}
+      onPointerEnter={() => void loadMegaMenu()}
+      onFocus={() => void loadMegaMenu()}
       onMouseLeave={() => setOpenMenu(null)}
       onKeyDown={onHeaderKeyDown}
       className={cn(
@@ -324,20 +296,6 @@ export function SiteHeader() {
           "[text-shadow:0_1px_2px_rgb(0_0_0/0.85),0_2px_10px_rgb(0_0_0/0.6)]",
       )}
     >
-      {/* Warm the menu photographs on load so the first open and every
-          switch crossfade between images already decoded. */}
-      <div aria-hidden className="sr-only">
-        {MENU_SECTIONS.map((section) => (
-          <Image
-            key={section.label}
-            src={section.image.src}
-            alt=""
-            width={320}
-            height={280}
-            priority
-          />
-        ))}
-      </div>
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-orange-600 focus:px-5 focus:py-3 focus:font-semibold focus:text-white"
@@ -368,6 +326,7 @@ export function SiteHeader() {
       >
         <div className="container-page flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-1.5">
           <Logo
+            priority
             variant={overlay ? "reversed" : "primary"}
             className="md:!py-0"
             tagline="Professional Healthspan Management"
@@ -382,7 +341,7 @@ export function SiteHeader() {
               aria-label="Primary"
               className="hidden min-w-0 xl:flex xl:flex-wrap xl:items-center xl:gap-1"
             >
-              {PRIMARY_NAV.map((item) =>
+              {nav.map((item) =>
                 item.children ? (
                   <div
                     key={item.label}
@@ -469,93 +428,18 @@ export function SiteHeader() {
 
       {/* Mega menu: the width of the bar's content, sliding down from behind
           it so the two edges meet. A quarter is a photograph for the section,
-          three quarters the list in two columns. */}
+          three quarters the list in two columns. Its own chunk, fetched when
+          the browser is idle or the pointer first nears a trigger; nothing
+          here is needed for the first screen. */}
       {openItem && openItem.children && (
-        <div
-          ref={panelRef}
-          role="region"
-          aria-label={`${openItem.label} menu`}
+        <MegaMenu
+          openLabel={openItem.label}
+          prevLabel={prevItem}
+          overlay={overlay}
+          panelRef={panelRef}
+          contentRef={contentRef}
           onKeyDown={onPanelKeyDown}
-          className="absolute inset-x-0 top-full z-0 hidden xl:block"
-        >
-          <div className="container-page">
-            <div
-              className={cn(
-                "animate-menu-in overflow-hidden rounded-b-lg shadow-lg transition-[height,background-color,color] duration-media ease-out [text-shadow:none]",
-                // Solid white, matching the bar (client request, 18 Sep
-                // 2026, after trying it as frosted glass). No border on the
-                // white state (client request, 19 Sep 2026: no grey lines) —
-                // the shadow alone separates it from the page. The navy-glass
-                // variant keeps its border for definition against video; it
-                // is retired today (see `overlay`) but kept working.
-                overlay
-                  ? "border border-t-0 border-white/20 bg-[rgba(0,20,77,0.62)] backdrop-blur-2xl backdrop-saturate-150"
-                  : "bg-white",
-              )}
-              style={{ height: panelHeight }}
-            >
-              <div className={cn("grid", openItem.splitHalf ? "grid-cols-2" : "grid-cols-4")}>
-                {/* One image cell for every section, photos stacked and
-                    crossfaded by opacity, so a switch never waits on a
-                    load and never cuts. */}
-                <div className="relative col-span-1 min-h-[280px]">
-                  {MENU_SECTIONS.map((section) => (
-                    <Image
-                      key={section.label}
-                      src={section.image.src}
-                      alt=""
-                      aria-hidden
-                      fill
-                      sizes="(min-width: 1024px) 50vw, 320px"
-                      className={cn(
-                        "object-cover transition-opacity duration-dissolve ease-in-out",
-                        section.label === openItem.label
-                          ? "opacity-100"
-                          : "opacity-0",
-                      )}
-                      style={{ objectPosition: section.image.focal }}
-                    />
-                  ))}
-                  {/* Where a section has a film, it plays over its photograph
-                      while that section is open. Muted, played once, no
-                      controls; it is scenery. Hidden for anyone who has asked
-                      for reduced motion, who sees the photograph instead.
-                      Mounted only while its section is open, so nothing
-                      downloads until the menu is actually used, and keyed so
-                      every opening is a fresh play under the same cap. */}
-                  {openItem.image?.video && (
-                    <MenuFilm
-                      key={openItem.label}
-                      src={openItem.image.video}
-                      poster={openItem.image.src}
-                      focal={openItem.image.focal}
-                    />
-                  )}
-                </div>
-                <div className={cn("relative", openItem.splitHalf ? "col-span-1" : "col-span-3")}>
-                  {prevItem && prevItem.children && (
-                    // Inert as well as hidden: the outgoing list is only
-                    // scenery for the fade, so its links must never take
-                    // focus, or focus would be lost when it unmounts.
-                    <div
-                      aria-hidden
-                      inert
-                      className="pointer-events-none absolute inset-0 animate-menu-fade-out"
-                    >
-                      <MenuList item={prevItem} onDark={overlay} />
-                    </div>
-                  )}
-                  <div
-                    ref={contentRef}
-                    className={prevItem ? "animate-menu-fade-in" : undefined}
-                  >
-                    <MenuList item={openItem} onDark={overlay} />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        />
       )}
 
       {mobileOpen && (
@@ -568,7 +452,7 @@ export function SiteHeader() {
             {/* Sign in first: a returning member should not scroll past five
                 sections of reading to reach their own information. */}
             <ul className="space-y-1">
-              {PRIMARY_NAV.map((item) => (
+              {nav.map((item) => (
                 <li key={item.label}>
                   <Link
                     href={item.href}
@@ -595,13 +479,13 @@ export function SiteHeader() {
                           <Link
                             href={child.href}
                             aria-current={
-                              child.href === activeHrefIn(item, pathname)
+                              child.href === activeHref(item.hrefs, pathname)
                                 ? "page"
                                 : undefined
                             }
                             className={cn(
                               "block rounded-md px-3 py-2.5 hover:bg-orange-50 hover:text-orange-700",
-                              child.href === activeHrefIn(item, pathname)
+                              child.href === activeHref(item.hrefs, pathname)
                                 ? "bg-orange-50 font-semibold text-orange-700 shadow-[inset_3px_0_0_var(--color-orange-600)]"
                                 : "text-neutral-700",
                             )}
@@ -619,298 +503,5 @@ export function SiteHeader() {
         </div>
       )}
     </header>
-  );
-}
-
-/**
- * How long a menu film may move, from the moment its section opens.
- *
- * WCAG 2.2.2: motion that runs longer than five seconds needs a way to stop
- * it, and the menu has no control (product owner, 26 Sep 2026: play once,
- * five seconds or less, then rest on a still). The films are 5.04s long, so
- * dropping `loop` alone would overrun, and a slow start would push it
- * further. 4.8s leaves a margin inside the limit.
- */
-const MENU_FILM_MS = 4800;
-
-/**
- * A section's film: plays once, then holds the frame it reached.
- *
- * It stops at whichever comes first, 4.8s of playback or 4.8s after it was
- * mounted (the section opening), so a film that starts late still stops in
- * time. It rests on the frame it stopped on rather than going back to the
- * poster: each film is a slow push-in, and a jump back out to the first
- * frame would be a second movement after the first had ended. If the film
- * never starts, the poster and the photograph under it show, as before.
- */
-function MenuFilm({
-  src,
-  poster,
-  focal,
-}: {
-  src: string;
-  poster: string;
-  focal?: string;
-}) {
-  const ref = useRef<HTMLVideoElement>(null);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const stop = () => el.pause();
-    const timer = window.setTimeout(stop, MENU_FILM_MS);
-    const onTime = () => {
-      if (el.currentTime * 1000 >= MENU_FILM_MS) stop();
-    };
-    el.addEventListener("timeupdate", onTime);
-    return () => {
-      window.clearTimeout(timer);
-      el.removeEventListener("timeupdate", onTime);
-    };
-  }, []);
-
-  return (
-    <video
-      ref={ref}
-      src={src}
-      poster={poster}
-      autoPlay
-      muted
-      playsInline
-      disablePictureInPicture
-      aria-hidden
-      className="absolute inset-0 size-full object-cover motion-reduce:hidden"
-      style={{ objectPosition: focal }}
-    />
-  );
-}
-
-/** Every section that opens a menu, for preloading and the stacked image cell. */
-const MENU_SECTIONS = PRIMARY_NAV.filter(
-  (i): i is Extract<NavSection, { children: NavLink[] }> => Boolean(i.children),
-);
-
-/**
- * One section's list, two columns. `onDark` is the navy glass variant over the
- * home page video.
- */
-function MenuList({
-  item,
-  onDark = false,
-}: {
-  item: NavSection;
-  onDark?: boolean;
-}) {
-  const pathname = usePathname();
-  if (!item.children) return null;
-  const items = item.children;
-  /* The entry for the page the reader is on is shown selected. */
-  const activeHref = activeHrefIn(item, pathname);
-  const firstCol = Math.ceil(items.length / 2);
-  const secondary = item.secondary;
-  const secondFirstCol = secondary ? Math.ceil(secondary.links.length / 2) : 0;
-  return (
-    <div className="p-6">
-      {/* A line saying what the section is, where the name alone does not
-          carry it. Spans the full width of the panel rather than sitting in
-          the first column, so it reads as an introduction to the whole list
-          (client request, 19 Sep 2026). Padded to the same gutter as the
-          labels below so the left edges line up. */}
-      {item.intro && (
-        <p
-          className={cn(
-            "mb-4 px-4 text-body-sm",
-            onDark ? "text-white/85" : "text-neutral-700",
-          )}
-        >
-          {item.intro}
-        </p>
-      )}
-      <ul className="grid grid-cols-2 gap-x-8 gap-y-1">
-        {items.map((child, i) => (
-          <li
-            key={child.href}
-            className={i < firstCol ? "col-start-1" : "col-start-2"}
-            style={{ gridRow: i < firstCol ? i + 1 : i - firstCol + 1 }}
-          >
-            <Link
-              href={child.href}
-              aria-current={child.href === activeHref ? "page" : undefined}
-              className={cn(
-                "block rounded-md px-4 py-3 transition-colors duration-media",
-                (child.sub || child.subEmpty) && "pb-2",
-                onDark ? "hover:bg-white/15" : "hover:bg-orange-50",
-                child.href === activeHref &&
-                  (onDark
-                    ? "bg-white/15"
-                    : "bg-orange-50 shadow-[inset_3px_0_0_var(--color-orange-600)]"),
-              )}
-            >
-              <span
-                className={cn(
-                  "block font-semibold transition-colors duration-media",
-                  onDark
-                    ? "text-white"
-                    : child.accent || child.href === activeHref
-                      ? "text-orange-700"
-                      : "text-navy-900",
-                )}
-              >
-                {child.label}
-              </span>
-              {child.description && (
-                <span
-                  className={cn(
-                    // One line, always: the copy is written to fit, and this
-                    // keeps it so if a longer label ever slips in.
-                    "mt-0.5 block truncate text-body-sm transition-colors duration-media",
-                    onDark ? "text-white/85" : "text-neutral-700",
-                  )}
-                >
-                  {child.description}
-                </span>
-              )}
-            </Link>
-
-            {/* What is inside the section, named. Outside the link above
-                rather than within it: these are links of their own, and an
-                anchor cannot hold another anchor.
-
-                Two by two, so four fit in the height one description used
-                to take. "More" only appears where there is more - see
-                TOOL_SUB_MORE. */}
-            {child.sub && (
-              <div className="px-4 pb-3">
-                <ul
-                  className={cn(
-                    "grid gap-x-3 gap-y-1.5",
-                    child.subStacked ? "grid-cols-1" : "grid-cols-2",
-                  )}
-                >
-                  {child.sub.map((s) => (
-                    <li key={`${s.href}${s.label}`} className="min-w-0">
-                      <Link
-                        href={s.href}
-                        aria-current={s.href === activeHref ? "page" : undefined}
-                        className={cn(
-                          "block transition-colors duration-media",
-                          onDark
-                            ? "text-white/70 hover:text-white"
-                            : "text-neutral-700 hover:text-orange-700",
-                          s.href === activeHref &&
-                            "font-semibold text-orange-700 underline underline-offset-4",
-                        )}
-                      >
-                        <span
-                          className={cn(
-                            "block truncate text-body-sm",
-                            child.subAccent &&
-                              (onDark ? "text-orange-300" : "text-orange-700"),
-                          )}
-                        >
-                          {s.label}
-                        </span>
-                        {/* When, or where. Muted, because the thing
-                            itself is the line above it. */}
-                        {s.note && (
-                          <span
-                            className={cn(
-                              "block truncate text-label-sm",
-                              onDark ? "text-white/50" : "text-neutral-600",
-                            )}
-                          >
-                            {s.note}
-                          </span>
-                        )}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-                {child.subMore && (
-                  <Link
-                    href={child.subMore}
-                    className={cn(
-                      "mt-1 inline-block text-label-sm font-semibold transition-colors duration-media",
-                      onDark
-                        ? "text-orange-300 hover:text-orange-200"
-                        : "text-orange-700 hover:text-orange-800",
-                    )}
-                  >
-                    More
-                  </Link>
-                )}
-              </div>
-            )}
-            {/* One plain line where the sub-items would be, for an entry
-                whose list is empty on purpose (the events, D22). Same
-                wrapper and padding as the sub block, so it sits under the
-                description with no gap. A <p>, not a link: nothing to go
-                to, so nothing to focus. */}
-            {child.subEmpty && !child.sub && (
-              <div className="px-4 pb-3">
-                <p
-                  className={cn(
-                    "text-body-sm",
-                    onDark ? "text-white/70" : "text-neutral-600",
-                  )}
-                >
-                  {child.subEmpty}
-                </p>
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      {/* The denser second block. Labels only: these are names, and a name
-          is its own description. Kept in reading order down each column, as
-          above, so the two blocks scan the same way.
-
-          No rule above the label: the client rejected the rule-above-a-
-          small-caps-label treatment on 19 Sep 2026. Space separates the two
-          blocks instead. The gap is tuned so the Research panel lands on the
-          same height as Learn, which is the taller list and sets the measure;
-          both are content-driven, so re-check after copy edits. */}
-      {secondary && (
-        <div className="mt-[30px]">
-          <p
-            className={cn(
-              "label-mono px-4",
-              onDark ? "text-orange-400" : "text-orange-700",
-            )}
-          >
-            {secondary.label}
-          </p>
-          <ul className="mt-1.5 grid grid-cols-2 gap-x-8">
-            {secondary.links.map((link, i) => (
-              <li
-                key={link.href}
-                className={i < secondFirstCol ? "col-start-1" : "col-start-2"}
-                style={{
-                  gridRow: i < secondFirstCol ? i + 1 : i - secondFirstCol + 1,
-                }}
-              >
-                <Link
-                  href={link.href}
-                  aria-current={link.href === activeHref ? "page" : undefined}
-                  className={cn(
-                    "block rounded-md px-4 py-[7px] text-body-sm transition-colors duration-media",
-                    onDark
-                      ? "text-white/85 hover:bg-white/15 hover:text-white"
-                      : "text-neutral-700 hover:bg-orange-50 hover:text-orange-700",
-                    link.href === activeHref &&
-                      (onDark
-                        ? "bg-white/15"
-                        : "bg-orange-50 font-semibold text-orange-700 shadow-[inset_3px_0_0_var(--color-orange-600)]"),
-                  )}
-                >
-                  {link.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
   );
 }

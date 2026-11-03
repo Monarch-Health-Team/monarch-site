@@ -2,10 +2,11 @@ import { Heading } from "@/components/primitives";
 import { cn } from "@/lib/utils";
 
 /**
- * The hero's two titles, dissolving in.
+ * The hero's two titles.
  *
- * Client request, 20 Sep 2026: one piece per word, not one block, so each
- * word can dissolve in on its own. Headline changed 4 Oct 2026 by Jeffrey
+ * Client request, 20 Sep 2026: one piece per word, not one block (they used
+ * to dissolve in word by word; see below for why they no longer do).
+ * Headline changed 4 Oct 2026 by Jeffrey
  * to "Continuous Care for Life", with "Continuous" highlighted in navy (it
  * was "Your healthspan, managed." — Dr. Sundren's D1 wording, superseded).
  * Changed again 25 Oct 2026 by JJ: the h1 is now "Your healthspan journey
@@ -18,16 +19,12 @@ import { cn } from "@/lib/utils";
  * the paragraph, 12px above it, and clear of the h1: 32px under it, 40px
  * from lg.
  *
- * No JavaScript. The animation is a CSS keyframe (see `dissolve-in` in
- * app/globals.css) and this stays a server component. The framer version
- * that came first put its `initial` state into the server HTML, which
- * left the page's only h1 at opacity 0 for the whole hydration window —
- * measured at nearly two seconds in dev, and forever if the script had
- * failed. An entrance animation must not be the thing that makes the
- * headline visible.
- *
- * Deliberately not scroll-triggered: this is the first thing on the
- * page, so the paint and the reader arriving are the same moment.
+ * No JavaScript and no entrance animation. The words are in the server
+ * HTML at full opacity and paint with the first frame. The dissolve this
+ * used to run (a CSS keyframe holding each word at opacity 0 for up to
+ * 1.5s, and a framer version before it) kept the headline off the screen
+ * during the Lighthouse LCP window (PR #6 QA failure, LCP 4.4s). An
+ * entrance animation must not be the thing that makes the headline visible.
  */
 const TITLE = [
   { text: "Your", className: "text-navy-900" },
@@ -45,15 +42,10 @@ const SECOND = [
   { text: "life" },
 ];
 
-/** Delay between one word's entrance and the next. */
-const STEP = 0.12;
-
 function Pieces({
   pieces,
-  start,
 }: {
   pieces: { text: string; className?: string }[];
-  start: number;
 }) {
   return pieces.map((piece, i) => (
     <span key={piece.text}>
@@ -61,14 +53,7 @@ function Pieces({
           break at — inline-blocks butted together would run as a single
           unbreakable word. */}
       {i > 0 && " "}
-      <span
-        // inline-block so the transform and the blur have a box to
-        // act on; an inline box cannot be transformed.
-        className={`dissolve-in inline-block ${piece.className ?? ""}`}
-        style={{ animationDelay: `${start + i * STEP}s` }}
-      >
-        {piece.text}
-      </span>
+      <span className={piece.className}>{piece.text}</span>
     </span>
   ));
 }
@@ -101,12 +86,12 @@ export function HeroTitle({
           className,
         )}
       >
-        <Pieces pieces={TITLE} start={0.15} />
+        <Pieces pieces={TITLE} />
       </Heading>
       {/* Clear of the h1 (32px, 40px from lg) and grouped with the
           paragraph, which sits 12px under it (tweak 2, JJ). */}
       <p className="mt-8 lg:mt-10 text-[1.5rem]/[2rem] font-normal text-balance text-neutral-950 lg:text-[1.875rem]/[2.375rem]">
-        <Pieces pieces={SECOND} start={0.15 + TITLE.length * STEP} />
+        <Pieces pieces={SECOND} />
       </p>
     </div>
   );

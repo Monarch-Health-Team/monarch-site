@@ -780,6 +780,6 @@ export const HELD_COMPARISON: ComparisonGroup[] = [
  * (Jeffrey, 23 Oct 2026): the line invites a conversation and a written quote
  * instead, and keeps the written-record statement.
  */
-export function pricingLine(_m?: Membership): string {
+export function pricingLine(): string {
   return "Fees are tailored to you. Talk to us for a written quote; every included service is itemized in writing before you begin.";
 }

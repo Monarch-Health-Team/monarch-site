@@ -1,8 +1,5 @@
-"use client";
-
 import Link from "@/components/site/live-link";
-import { useEffect, useRef, useState } from "react";
-import type { MouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -13,7 +10,7 @@ import { cn } from "@/lib/utils";
  * services: the picture on the front, the words on the back, and half the
  * height the stacked version needed.
  *
- * CSS only, so both grids stay server components — a flip needs no state,
+ * CSS only and a server component (no client JS to hydrate for the 17 cards on the home page) — a flip needs no state,
  * only `:hover` on the link and a rotation on the plane inside it. It also
  * turns on keyboard focus, or the back would be unreachable without a
  * mouse.
@@ -52,43 +49,10 @@ export function FlipCard({
    */
   axis?: "x" | "y";
 }) {
-  // Touch screens never get :hover, so the back is out of reach there.
-  // Until 21 Oct 2026 the first tap turned the card and only the second
-  // followed the link. That swallowed the link for screen-reader users, who
-  // activate with a double-tap: they turned the card, heard nothing, and had
-  // to do it again (accessibility review). A card that links now always
-  // follows its link on the first tap, so the front carries the name and the
-  // page it leads to carries the rest. A card with no link (href null) still
-  // turns on tap, since there is no link to swallow.
-  const [flipped, setFlipped] = useState(false);
-  const shellRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    if (!flipped) return;
-    function away(e: PointerEvent) {
-      if (!shellRef.current?.contains(e.target as Node)) setFlipped(false);
-    }
-    document.addEventListener("pointerdown", away);
-    return () => document.removeEventListener("pointerdown", away);
-  }, [flipped]);
-
-  function onTap(e: MouseEvent) {
-    if (href) return;
-    if (flipped) return;
-    if (window.matchMedia("(hover: none)").matches) {
-      e.preventDefault();
-      setFlipped(true);
-    }
-  }
-
-  const turned =
-    axis === "x" ? "[transform:rotateX(180deg)]" : "[transform:rotateY(180deg)]";
-
   const inner = (
     <div
       className={cn(
         "relative size-full transition-transform duration-500 ease-out",
-        flipped && turned,
         "[transform-style:preserve-3d]",
         /*
          * The turning part answers no pointer at all (client, 21 Sep
@@ -132,22 +96,11 @@ export function FlipCard({
   );
 
   return href ? (
-    <Link
-      href={href}
-      className={shell}
-      onClick={onTap}
-      ref={shellRef as React.Ref<HTMLAnchorElement>}
-    >
+    <Link href={href} className={shell}>
       {inner}
     </Link>
   ) : (
-    <div
-      className={shell}
-      onClick={onTap}
-      ref={shellRef as React.Ref<HTMLDivElement>}
-    >
-      {inner}
-    </div>
+    <div className={shell}>{inner}</div>
   );
 }
 

@@ -119,7 +119,7 @@ export function InfoTooltip({
           "inline-flex cursor-pointer items-center justify-center transition-colors duration-brand",
           bare
             ? "size-full"
-            : "rounded-full text-orange-700 hover:text-orange-800",
+            : "min-w-6 rounded-full text-orange-700 hover:text-orange-800",
           "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orange-600",
           triggerClassName,
         )}

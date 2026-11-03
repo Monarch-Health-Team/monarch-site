@@ -54,6 +54,7 @@ export function Logo({
   className,
   width = 232,
   tagline,
+  priority = false,
 }: {
   variant?: "primary" | "reversed";
   className?: string;
@@ -61,6 +62,14 @@ export function Logo({
   width?: number;
   /** Optional line set beneath the mark, e.g. the partner tagline. */
   tagline?: string;
+  /**
+   * Preload the lockup. Only the header's, which is in the first screen; the
+   * footer's is far below it and loads lazily, so it neither competes with
+   * the hero nor shows up as an unused request (Lighthouse, PR #6). Only the
+   * tagline-less raster is ever preloaded: the SVG is shown from sm up and
+   * is left to load lazily, so a phone never fetches it.
+   */
+  priority?: boolean;
 }) {
   const src =
     variant === "reversed"
@@ -111,7 +120,7 @@ export function Logo({
           alt={SITE.name}
           width={width}
           height={Math.round((width / 560) * 120)}
-          priority
+          priority={priority}
           className={taglineSrc ? "h-auto w-full sm:hidden" : "h-auto w-full"}
         />
         {taglineSrc && (
@@ -127,7 +136,7 @@ export function Logo({
             alt={`${SITE.name} - ${tagline}`}
             width={width}
             height={Math.round(width * TAGLINE_ASSET_RATIO)}
-            priority
+            loading="lazy"
             unoptimized
             className="hidden h-auto w-full sm:block"
           />
