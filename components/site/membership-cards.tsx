@@ -12,10 +12,9 @@ import { FlipCard } from "@/components/site/flip-card";
 /**
  * The memberships, on a continuum.
  *
- * Three cards in a row, then Signature as a wide block beneath them.
- * The three on the rail are the ones a life moves through; Signature is
- * not a stage, it is a depth, so it sits apart, running the full width of
- * the row at half its height.
+ * Three cards of one style in a single row: Proactive, Ageing in Place and
+ * Signature. (Signature used to be a wide block beneath the row; it is
+ * exported below for the Memberships page, which still uses it.)
  *
  * Order and stages were reset on 21 Sep 2026 against the product
  * architecture draft, which settles the tier ladder by fee: Foundation,
@@ -64,8 +63,11 @@ const SCRIM = "absolute inset-0";
 const PLATE =
   "mx-auto w-fit max-w-full rounded-xl bg-white/90 px-4 py-2 shadow-sm backdrop-blur-sm";
 
-/** The three staged memberships, in order. Signature is not one of them. */
-const STAGED = MEMBERSHIPS.filter((m) => m.slug !== "signature");
+/**
+ * The three memberships on the home page, in order: Proactive, Ageing in
+ * Place, Signature. Foundation is not offered here (Jeffrey, Nov 2026).
+ */
+const STAGED = MEMBERSHIPS.filter((m) => m.slug !== "foundation");
 
 /**
  * What the home page card shows, which is not what the nav shows (Jeffrey,
@@ -77,9 +79,6 @@ const STAGED = MEMBERSHIPS.filter((m) => m.slug !== "signature");
  */
 const CARD_COPY: Record<string, { name?: string; line: string }> =
   {
-    foundation: {
-      line: "I’m healthy and I want to stay that way.",
-    },
     executive: {
       line: "I want to protect my health and performance.",
     },
@@ -111,13 +110,6 @@ export function MembershipCards() {
           </li>
         ))}
       </ul>
-
-      {/* Signature, the full width of the row above it. Not on the rail:
-          it is offered at any age, so putting it at one end of a timeline
-          would say the opposite of what it is. */}
-      <div className="mt-5">
-        <SignatureBlock />
-      </div>
     </div>
   );
 }

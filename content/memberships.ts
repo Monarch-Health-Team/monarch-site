@@ -157,7 +157,7 @@ export const MEMBERSHIPS: Membership[] = [
   },
   {
     slug: "executive",
-    name: "Monarch Executive",
+    name: "Monarch Proactive",
     stage: "Typically age 40 to 65, or older if you are highly independent",
     stageShort: "Typically age 40 to 65",
     navPromise: "Hold the ground you have, through the decades that take it",
