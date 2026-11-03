@@ -1,11 +1,15 @@
 import type { Metadata } from "next";
 import { Fragment } from "react";
-import Link from "@/components/site/live-link";
 import {
   ArrowRight,
+  Brain,
   Check,
+  CircleCheck,
   ClipboardList,
+  Heart,
+  House,
   ListChecks,
+  PersonStanding,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -21,8 +25,6 @@ import {
 } from "@/components/primitives";
 import { GENERATED } from "@/components/site/photo";
 import { ParallaxBackground } from "@/components/site/parallax-background";
-import { HeroIntro } from "@/components/site/hero-intro";
-import { HeroTitle } from "@/components/site/hero-title";
 import { InfoTooltip } from "@/components/site/info-tooltip";
 import { COMPLIANCE } from "@/lib/compliance";
 import { PillarsGrid } from "@/components/site/pillars-grid";
@@ -38,12 +40,6 @@ import { HomeReading } from "@/components/site/home-reading";
 import { FOCUS_AREAS } from "@/content/healthspan";
 import { getAllPosts } from "@/lib/journal";
 import { SOFT_LAUNCH_ON } from "@/lib/soft-launch";
-import { FREE_TIER_ON } from "@/lib/free-tier";
-import { FREE_ACCOUNT_HREF } from "@/lib/nav";
-import {
-  HERO_FREE_ACCOUNT_LABEL,
-  HERO_FREE_ACCOUNT_LEAD,
-} from "@/content/home";
 import { cn } from "@/lib/utils";
 import { SITE } from "@/lib/site";
 
@@ -127,6 +123,22 @@ const MEMBERSHIP_POINTS = [
   },
 ];
 
+/** Four-pillar row under the hero (issue #16). */
+const INDEPENDENCE_PILLARS = [
+  { title: "In control of your life", text: "Make your own choices, for longer.", Icon: PersonStanding },
+  { title: "Keep your mind sharp", text: "Stay engaged, connected and independent.", Icon: Brain },
+  { title: "Maintain your health", text: "Prevent decline and manage risks early.", Icon: Heart },
+  { title: "Age at home", text: "With the right support, for as long as possible.", Icon: House },
+];
+
+const AIP_CHECKLIST = [
+  "Annual health & functional assessment",
+  "Falls and mobility planning",
+  "Medication review",
+  "Home-based support",
+  "A named care coordinator",
+];
+
 export default function HomePage() {
   /*
    * Three (client, 23 Sep 2026). Each article carries its photograph and
@@ -144,131 +156,133 @@ export default function HomePage() {
         aria-labelledby="home-hero-title"
         data-no-butterfly="true"
         className={cn(
-          "relative isolate min-h-svh overflow-hidden bg-neutral-100",
+          "relative isolate overflow-hidden bg-neutral-100",
           // With the soft-launch banner on, the header is sticky in flow
           // instead of fixed; pull the hero up under it by the bar's height
           // so it still runs to the top of the bar (soft-launch-switch).
           SOFT_LAUNCH_ON && "-mt-(--header-h)",
         )}
       >
-        {/* Hero Option A (Nicole's mockup, JJ approved 25 Oct 2026): the
-            coastal sunrise from the method band (bg-method-landscape, one
-            of the site's own generated images, no people) full width, the
-            words on the left over a white glow, the view left open on the
-            right.
-
-            Two scrims, because the words sit in two different places. From
-            lg the words are a left column, so the scrim runs left to right
-            on Nicole's corrected stops (96% at 0, 90% at 50%, 40% at 68%,
-            clear by 85%); her mockup's lighter stops left the right end of
-            the paragraph at 3.7:1. Below lg the words fill the width and
-            stack from the top, so the scrim runs top to bottom instead, in
-            px so it follows the text rather than the screen height, and the
-            forest shows under the actions. Contrast for every line was
-            measured on rendered pixels at 375, 768, 1280 and 1440
-            (/workspace/monarch-hero/optionA). */}
-        <ParallaxBackground
-          {...GENERATED.bgMethod}
-          strength={0.12}
-          priority
-          imgClassName="object-[18%_60%]! lg:object-[72%_45%]!"
-        />
-        {/* Title, the second title 32px beneath it (40px from lg), the
-            supporting line 12px under that, then the actions 32px under the
-            line (tweak 2, JJ, 25 Oct 2026). Stacked from
-            the top on a phone and a tablet; centred in the screen, on the
-            left, from lg. On a short or narrow screen the hero simply
-            grows. */}
-        <Container className="relative z-10 flex min-h-svh flex-col">
-          <div className="flex flex-1 flex-col items-start justify-start pt-28 pb-10 text-left sm:pt-32 lg:justify-center lg:pt-24 lg:pb-16">
-            {/* Phones (below sm), tweak 2 (JJ, 25 Oct 2026): the block is
-                as wide as the Book button's label plus its padding, centred,
-                so the side space is even and nothing runs to the edges. The
-                Book button sets that width (w-fit takes the widest child's
-                natural width); the titles, the paragraph and Explore take
-                the block's width and contribute none of their own (w-0
-                min-w-full). From sm the wrapper is display: contents, so
-                the tablet and desktop layout is exactly as before. */}
-            <div className="relative mx-auto w-fit max-w-full sm:mx-0">
-              {/* A soft white cloud around the words only (Jeffrey, 28 Oct
-                  2026), in place of the full-height scrims. Twelve white
-                  ellipses sit around the block (one large core, one at each
-                  corner, and bumps along the edges, all sized in percent of
-                  the block so they follow it), and the group is blurred
-                  together: the overlapping shapes melt into one lumpy,
-                  fluid outline and no straight edge shows. The words sit
-                  inside the core and the corner shapes, on near-solid white,
-                  with 60 to 70px of cloud around them; the blur is
-                  smaller on a phone so the cloud stays tight there. From lg the
-                  right-hand shapes are pulled in (the words end at about 86%
-                  of the block there), so the cloud runs about 80px past the
-                  text, and the bottom-right shapes are smaller and higher so the cloud
-                  runs about 60px below the last line there; below lg the words
-                  fill the block, so they stay out. */}
-              <div
-                aria-hidden
-                className="pointer-events-none absolute inset-0 -z-10 opacity-90 blur-[18px] sm:blur-[30px]"
+        <div className="grid lg:min-h-[44rem] lg:grid-cols-2">
+          <div className="flex flex-col items-start justify-center px-6 pt-28 pb-10 sm:px-10 lg:py-24 lg:pr-12 lg:pl-[max(2.5rem,calc((100vw-80rem)/2+2.5rem))]">
+            <p className="flex items-center gap-3 text-label font-semibold tracking-widest text-orange-700 uppercase">
+              Continuous care for life
+              <span aria-hidden className="h-px w-12 bg-orange-700" />
+            </p>
+            <h1
+              id="home-hero-title"
+              className="mt-5 max-w-[36rem] text-display-lg font-bold text-navy-900"
+            >
+              Live well. Stay independent.
+              <br className="hidden sm:block" /> On your terms.
+            </h1>
+            <p className="mt-6 max-w-[34rem] text-body-lg font-normal text-neutral-900">
+              <strong className="font-bold">At Monarch Health</strong>, we help
+              you maintain the{" "}
+              <strong className="font-bold">freedom to enjoy life</strong> — with
+              strong health, clear thinking and the confidence to make your own
+              decisions, at every stage.
+            </p>
+            <div className="mt-8">
+              <ButtonLink
+                href="/memberships"
+                size="lg"
+                className="rounded-[10px] px-6"
               >
-                <span className="absolute rounded-full bg-white left-[-9%] top-[-12%] w-[118%] h-[124%] lg:w-[105%] lg:h-[118%]" />
-                <span className="absolute rounded-full bg-white left-[-12%] top-[-16%] w-[46%] h-[40%]" />
-                <span className="absolute rounded-full bg-white left-[66%] top-[-18%] w-[46%] h-[42%] lg:left-[56%] lg:w-[40%]" />
-                <span className="absolute rounded-full bg-white left-[-13%] top-[78%] w-[48%] h-[42%]" />
-                <span className="absolute rounded-full bg-white left-[64%] top-[76%] w-[50%] h-[46%] lg:left-[48%] lg:top-[74%] lg:w-[38%] lg:h-[34%]" />
-                <span className="absolute rounded-full bg-white left-[28%] top-[-20%] w-[34%] h-[34%]" />
-                <span className="absolute rounded-full bg-white left-[52%] top-[-16%] w-[26%] h-[28%]" />
-                <span className="absolute rounded-full bg-white left-[20%] top-[84%] w-[30%] h-[34%] lg:h-[26%]" />
-                <span className="absolute rounded-full bg-white left-[46%] top-[88%] w-[34%] h-[30%] lg:top-[84%] lg:w-[28%] lg:h-[22%]" />
-                <span className="absolute rounded-full bg-white left-[-14%] top-[38%] w-[22%] h-[34%]" />
-                <span className="absolute rounded-full bg-white left-[92%] top-[30%] w-[24%] h-[36%] lg:left-[80%] lg:w-[18%]" />
-                <span className="absolute rounded-full bg-white left-[94%] top-[58%] w-[20%] h-[28%] lg:left-[82%] lg:w-[16%]" />
-              </div>
-
-              <HeroTitle
-                id="home-hero-title"
-                wrapperClassName="w-0 min-w-full sm:w-auto sm:min-w-0"
-                className="max-w-[22rem] sm:max-w-[36rem] lg:max-w-[42rem]"
-              />
-
-              <HeroIntro className="w-0 min-w-full max-w-[37rem] sm:w-auto sm:min-w-0">
-                {/* Explore is the primary action, Book the outline beside it
-                    (Option A). Stacked on a phone, both as wide as Book's
-                    label plus padding (tweak 2); side by side from sm. The outline button is white-filled so its
-                    label never depends on the photograph. */}
-                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:gap-4">
-                  <ButtonLink
-                    href="/memberships"
-                    size="lg"
-                    className="w-full rounded-[10px] px-6 sm:w-auto"
-                  >
-                    Explore Your Care Pathway
-                  </ButtonLink>
-                  <ButtonLink
-                    href="/contact?subject=consultation"
-                    variant="secondary"
-                    size="lg"
-                    className="w-full rounded-[10px] bg-white px-6 hover:bg-orange-50 sm:w-auto"
-                  >
-                    Book an Introductory Consultation
-                  </ButtonLink>
-                </div>
-                {/* The free account's door from the hero (content/home.ts),
-                    now a text link under the actions: "New here?" is plain
-                    text and only the label links. Not rendered while the free
-                    tier is off; the two actions then sit alone (design 6.2,
-                    c.139). Copy by JJ and Mia, 25 Oct 2026. */}
-                {FREE_TIER_ON && (
-                  <p className="mt-5 text-center text-[0.9375rem]/[1.5rem] text-neutral-700 sm:text-left">
-                    {HERO_FREE_ACCOUNT_LEAD}{" "}
-                    <Link
-                      href={FREE_ACCOUNT_HREF}
-                      className="target-min ml-1 inline-flex items-center font-semibold text-orange-700 underline underline-offset-4 hover:text-orange-800"
-                    >
-                      {HERO_FREE_ACCOUNT_LABEL}
-                    </Link>
-                  </p>
-                )}
-              </HeroIntro>
+                Start Your Healthspan Journey
+                <ArrowRight aria-hidden className="size-4" />
+              </ButtonLink>
             </div>
+          </div>
+          {/* Placeholder: no photograph yet. */}
+          <div
+            aria-hidden
+            className="mx-6 mb-10 aspect-[4/3] rounded-2xl bg-neutral-200 sm:mx-10 lg:m-0 lg:aspect-auto lg:rounded-none"
+          />
+        </div>
+      </section>
+
+      {/* ================================ four pillars */}
+      <section aria-label="What Monarch helps you keep" className="bg-navy-50">
+        <Container>
+          <ul className="grid sm:grid-cols-2 lg:grid-cols-4">
+            {INDEPENDENCE_PILLARS.map(({ title, text, Icon }) => (
+              <li
+                key={title}
+                className="flex flex-col items-center gap-3 border-b border-navy-200 px-6 py-8 text-center last:border-b-0 sm:max-lg:nth-[2n]:border-l sm:max-lg:nth-[n+3]:border-b-0 lg:border-b-0 lg:border-l lg:first:border-l-0"
+              >
+                <Icon
+                  aria-hidden
+                  className="size-9 text-navy-900"
+                  strokeWidth={1.5}
+                />
+                <h2 className="font-serif text-heading-4 font-semibold text-navy-900">
+                  {title}
+                </h2>
+                <p className="max-w-[16rem] text-body leading-snug text-neutral-900">
+                  {text}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Container>
+      </section>
+
+      {/* ================================ Ageing in Place flagship */}
+      <section
+        aria-labelledby="aip-title"
+        className="bg-navy-950 py-14 text-white md:py-20"
+      >
+        <Container>
+          <div className="grid items-center gap-10 lg:grid-cols-[35fr_35fr_30fr] lg:gap-12">
+            {/* Placeholder: no photograph yet. */}
+            <div
+              aria-hidden
+              className="aspect-[4/3] w-full rounded-2xl bg-navy-800"
+            />
+            <div>
+              <p className="flex items-center gap-3 text-label font-semibold tracking-widest text-orange-400 uppercase">
+                Our flagship programme
+                <span aria-hidden className="h-px w-12 bg-orange-400" />
+              </p>
+              <h2
+                id="aip-title"
+                className="mt-4 text-heading-1 font-bold text-white"
+              >
+                Ageing in Place
+              </h2>
+              <p className="mt-3 text-body-lg font-semibold text-white">
+                Proactive, personalized support to help you remain independent
+                at home.
+              </p>
+              <p className="mt-4 text-body text-navy-100">
+                Through annual assessments, care planning and ongoing
+                follow-up, we identify changing needs early and coordinate the
+                right support — before a crisis occurs.
+              </p>
+              <div className="mt-6">
+                <ButtonLink
+                  href="/care/ageing-in-place"
+                  size="lg"
+                  className="rounded-[10px]"
+                >
+                  Learn about Ageing in Place
+                  <ArrowRight aria-hidden className="size-4" />
+                </ButtonLink>
+              </div>
+            </div>
+            <ul className="space-y-4 border-t border-white/25 pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-10">
+              {AIP_CHECKLIST.map((item) => (
+                <li key={item} className="flex items-center gap-3 text-body text-white">
+                  <CircleCheck
+                    aria-hidden
+                    className="size-6 shrink-0 text-orange-400"
+                    strokeWidth={1.75}
+                  />
+                  {item}
+                </li>
+              ))}
+            </ul>
           </div>
         </Container>
       </section>
