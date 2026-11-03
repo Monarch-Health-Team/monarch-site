@@ -1,0 +1,225 @@
+name: Claude agent (reusable)
+
+# One Claude Code session, called only by claude-build.yml.
+#   mode=build: branch off main, implement the issue, push cc/issue-N, open a PR.
+#   mode=fix:   on the existing branch, fix QA failures and/or follow-up
+#               instructions, push.
+# Two jobs on purpose:
+#   edit    - runs Claude with a READ-ONLY GitHub token. Claude can only edit
+#             files and run pnpm lint/typecheck/build. Output is a patch.
+#   publish - plain git/gh steps (no AI) apply the patch, commit, push, open PR.
+on:
+  workflow_call:
+    inputs:
+      mode:
+        type: string
+        required: true
+      issue_number:
+        description: Issue (build) or PR (fix) number, for title/description
+        type: string
+        required: true
+      branch:
+        type: string
+        required: true
+      round:
+        type: string
+        default: "0"
+      qa_summary:
+        type: string
+        default: ""
+      instructions:
+        description: Extra instructions from a /claude fix comment
+        type: string
+        default: ""
+    outputs:
+      changed:
+        value: ${{ jobs.edit.outputs.changed }}
+      sha:
+        value: ${{ jobs.publish.outputs.sha }}
+      pr_number:
+        value: ${{ jobs.publish.outputs.pr_number }}
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  edit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      changed: ${{ steps.patch.outputs.changed }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      NUM: ${{ inputs.issue_number }}
+      MODE: ${{ inputs.mode }}
+      ROUND: ${{ inputs.round }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.mode == 'build' && 'main' || inputs.branch }}
+          persist-credentials: false
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build the prompt
+        id: ctx
+        env:
+          QA_SUMMARY: ${{ inputs.qa_summary }}
+          INSTRUCTIONS: ${{ inputs.instructions }}
+        run: |
+          title=$(gh api "repos/$REPO/issues/$NUM" --jq '.title')
+          body=$(gh api "repos/$REPO/issues/$NUM" --jq '.body // ""')
+          {
+            if [ "$MODE" = build ]; then
+              echo "Implement GitHub issue #$NUM in this repository (Monarch Health marketing site)."
+              echo
+              echo "Title: $title"
+              echo
+              echo "Description:"
+              printf '%s\n' "$body"
+            else
+              echo "You are on the branch of pull request #$NUM: $title"
+              if [ -n "$INSTRUCTIONS" ]; then
+                echo
+                echo "The owner asked for these changes:"
+                printf '%s\n' "$INSTRUCTIONS"
+              fi
+              if [ -n "$QA_SUMMARY" ]; then
+                echo
+                echo "Automated QA failed (fix round $ROUND of 2). Fix ONLY what is needed to make QA pass;"
+                echo "keep the intended change. QA output:"
+                printf '%s\n' "$QA_SUMMARY"
+              fi
+            fi
+            echo
+            echo "Rules: follow CLAUDE.md. Edit files only; you cannot run git or gh, and a separate step"
+            echo "commits your work. Before finishing, run \`pnpm lint\` and \`pnpm build\` and fix what you broke."
+            echo "Finish with a 3-6 line plain-English summary of what you changed."
+          } > "$RUNNER_TEMP/prompt.txt"
+          { echo "prompt<<PROMPT_EOF_7c1"; cat "$RUNNER_TEMP/prompt.txt"; echo "PROMPT_EOF_7c1"; } >> "$GITHUB_OUTPUT"
+
+      - name: Run Claude Code
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        timeout-minutes: 18
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Read-only token on purpose: skips the Claude GitHub App/OIDC path
+          # and means nothing in this job can push or comment.
+          github_token: ${{ github.token }}
+          prompt: ${{ steps.ctx.outputs.prompt }}
+          claude_args: >-
+            --model ${{ vars.CLAUDE_MODEL || 'sonnet' }}
+            --max-turns ${{ vars.CLAUDE_MAX_TURNS || '40' }}
+            --allowedTools "Read,Edit,MultiEdit,Write,Glob,Grep,TodoWrite,Bash(pnpm lint),Bash(pnpm typecheck),Bash(pnpm build)"
+            --disallowedTools "WebFetch,WebSearch"
+
+      - name: Make the patch
+        id: patch
+        if: always()
+        env:
+          EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
+        run: |
+          # Workflows and lockfile are off limits for the agent.
+          git checkout HEAD -- .github pnpm-lock.yaml 2>/dev/null || true
+          git clean -fdq -- .github
+          git add -A
+          git diff --cached --binary > "$RUNNER_TEMP/claude.patch"
+          if [ -s "$RUNNER_TEMP/claude.patch" ]; then echo "changed=true" >> "$GITHUB_OUTPUT"; else echo "changed=false" >> "$GITHUB_OUTPUT"; fi
+          git diff --cached --stat
+          if [ -n "$EXEC_FILE" ] && [ -f "$EXEC_FILE" ]; then
+            jq -r '[.[] | select(.type=="result")] | last | .result // ""' "$EXEC_FILE" | head -c 3000 > "$RUNNER_TEMP/claude-summary.md" || true
+          fi
+          touch "$RUNNER_TEMP/claude-summary.md"
+
+      - uses: actions/upload-artifact@v4
+        if: always() && steps.patch.outputs.changed == 'true'
+        with:
+          name: claude-patch-${{ github.run_id }}-${{ inputs.mode }}-${{ inputs.round }}
+          path: |
+            ${{ runner.temp }}/claude.patch
+            ${{ runner.temp }}/claude-summary.md
+          retention-days: 3
+
+  publish:
+    needs: edit
+    if: needs.edit.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+      pr_number: ${{ steps.pr.outputs.number }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      NUM: ${{ inputs.issue_number }}
+      MODE: ${{ inputs.mode }}
+      ROUND: ${{ inputs.round }}
+      BRANCH: ${{ inputs.branch }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.mode == 'build' && 'main' || inputs.branch }}
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: claude-patch-${{ github.run_id }}-${{ inputs.mode }}-${{ inputs.round }}
+          path: ${{ runner.temp }}/claude
+
+      - name: Commit and push
+        id: commit
+        run: |
+          git apply --index "$RUNNER_TEMP/claude/claude.patch"
+          title=$(gh api "repos/$REPO/issues/$NUM" --jq '.title')
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ "$MODE" = build ]; then
+            git checkout -q -b "$BRANCH"
+            git commit -q -m "${title} (#${NUM})" -m "Built by Claude Code (claude-build workflow)."
+          else
+            git commit -q -m "Claude fix round ${ROUND} (#${NUM})"
+          fi
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "HEAD:refs/heads/${BRANCH}"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Open pull request
+        id: pr
+        if: inputs.mode == 'build'
+        run: |
+          title=$(gh api "repos/$REPO/issues/$NUM" --jq '.title')
+          {
+            echo "Closes #${NUM}"
+            echo
+            echo "Built by Claude Code. QA runs automatically in the same workflow; failures go back to Claude (max 2 fix rounds)."
+            echo "Comment \`/claude fix <what to change>\` on this PR for follow-up changes."
+            echo
+            echo "### Claude's summary"
+            cat "$RUNNER_TEMP/claude/claude-summary.md" 2>/dev/null || true
+          } > "$RUNNER_TEMP/pr-body.md"
+          url=$(gh pr create --repo "$REPO" --base main --head "$BRANCH" --title "${title} (#${NUM})" --body-file "$RUNNER_TEMP/pr-body.md")
+          echo "number=${url##*/}" >> "$GITHUB_OUTPUT"

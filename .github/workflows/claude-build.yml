@@ -1,0 +1,200 @@
+name: Claude build
+
+# Issue -> Claude builds it -> PR -> QA -> (fail) Claude fix -> QA -> (fail)
+# Claude fix -> QA -> one report. Max 2 fix rounds, fixed by the job graph.
+#
+# Start:  label an issue `claude-build`, or comment `/claude build` on it.
+# Follow-up on a Claude PR (cc/* branch): comment `/claude fix <what to change>`.
+# Only people with write access can start it. Everything is chained in this one
+# workflow because pushes/PRs made with GITHUB_TOKEN don't trigger other
+# workflows (so QA is called directly, and nothing waits for approval).
+# Branches use the cc/ prefix so the box QA mirror (claude/* only) ignores them.
+on:
+  issues:
+    types: [labeled]
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to build
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  statuses: write
+
+concurrency:
+  group: claude-build-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' && github.event.label.name == 'claude-build') ||
+      (github.event_name == 'issue_comment' && !github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '/claude build')) ||
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '/claude fix'))
+    outputs:
+      mode: ${{ steps.g.outputs.mode }}
+      num: ${{ steps.g.outputs.num }}
+      branch: ${{ steps.g.outputs.branch }}
+      pr: ${{ steps.g.outputs.pr }}
+      instructions: ${{ steps.g.outputs.instructions }}
+    steps:
+      - id: g
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          EVENT: ${{ github.event_name }}
+          NUM: ${{ github.event.issue.number || inputs.issue_number }}
+          SENDER: ${{ github.event.sender.login }}
+          IS_PR: ${{ github.event.issue.pull_request && 'true' || 'false' }}
+          BODY: ${{ github.event.comment.body }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+        run: |
+          perm=$(gh api "repos/$REPO/collaborators/$SENDER/permission" --jq .permission)
+          case "$perm" in admin|maintain|write) ;; *) echo "::error::$SENDER has $perm access"; exit 1;; esac
+          echo "num=$NUM" >> "$GITHUB_OUTPUT"
+          if [ "$IS_PR" = true ]; then
+            read -r state head same < <(gh pr view "$NUM" --repo "$REPO" --json state,headRefName,isCrossRepository \
+              --jq '[.state, .headRefName, (if .isCrossRepository then "no" else "yes" end)] | @tsv')
+            if [ "$state" != OPEN ] || [ "$same" != yes ] || [[ "$head" != cc/* ]]; then
+              echo "::error::/claude fix only works on open cc/* PRs from this repo"; exit 1
+            fi
+            echo "mode=fix" >> "$GITHUB_OUTPUT"
+            echo "branch=$head" >> "$GITHUB_OUTPUT"
+            echo "pr=$NUM" >> "$GITHUB_OUTPUT"
+            { echo "instructions<<INS_EOF_9d2"; printf '%s\n' "${BODY#/claude fix}" | head -c 4000; echo; echo "INS_EOF_9d2"; } >> "$GITHUB_OUTPUT"
+          else
+            branch="cc/issue-$NUM"
+            if gh api "repos/$REPO/branches/$branch" >/dev/null 2>&1; then
+              echo "::error::Branch $branch already exists. Use /claude fix on its PR, or delete the branch first."; exit 1
+            fi
+            echo "mode=build" >> "$GITHUB_OUTPUT"
+            echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          fi
+          # A reaction instead of a comment, so nobody gets a notification yet.
+          if [ "$EVENT" = issue_comment ]; then
+            gh api -X POST "repos/$REPO/issues/comments/$COMMENT_ID/reactions" -f content=eyes >/dev/null
+          else
+            gh api -X POST "repos/$REPO/issues/$NUM/reactions" -f content=eyes >/dev/null
+          fi
+
+  start:
+    needs: gate
+    uses: ./.github/workflows/claude-agent.yml
+    with:
+      mode: ${{ needs.gate.outputs.mode }}
+      issue_number: ${{ needs.gate.outputs.num }}
+      branch: ${{ needs.gate.outputs.branch }}
+      round: "0"
+      instructions: ${{ needs.gate.outputs.instructions }}
+    secrets: inherit
+
+  qa1:
+    needs: start
+    if: needs.start.outputs.changed == 'true' && needs.start.result == 'success'
+    uses: ./.github/workflows/qa.yml
+    with:
+      ref: ${{ needs.start.outputs.sha }}
+
+  fix1:
+    needs: [gate, start, qa1]
+    if: needs.qa1.result == 'success' && needs.qa1.outputs.passed != 'true'
+    uses: ./.github/workflows/claude-agent.yml
+    with:
+      mode: fix
+      issue_number: ${{ needs.start.outputs.pr_number || needs.gate.outputs.pr }}
+      branch: ${{ needs.gate.outputs.branch }}
+      round: "1"
+      qa_summary: ${{ needs.qa1.outputs.summary }}
+    secrets: inherit
+
+  qa2:
+    needs: fix1
+    if: needs.fix1.outputs.changed == 'true' && needs.fix1.result == 'success'
+    uses: ./.github/workflows/qa.yml
+    with:
+      ref: ${{ needs.fix1.outputs.sha }}
+
+  fix2:
+    needs: [gate, start, qa2]
+    if: needs.qa2.result == 'success' && needs.qa2.outputs.passed != 'true'
+    uses: ./.github/workflows/claude-agent.yml
+    with:
+      mode: fix
+      issue_number: ${{ needs.start.outputs.pr_number || needs.gate.outputs.pr }}
+      branch: ${{ needs.gate.outputs.branch }}
+      round: "2"
+      qa_summary: ${{ needs.qa2.outputs.summary }}
+    secrets: inherit
+
+  qa3:
+    needs: fix2
+    if: needs.fix2.outputs.changed == 'true' && needs.fix2.result == 'success'
+    uses: ./.github/workflows/qa.yml
+    with:
+      ref: ${{ needs.fix2.outputs.sha }}
+
+  report:
+    needs: [gate, start, qa1, fix1, qa2, fix2, qa3]
+    if: always() && needs.gate.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUM: ${{ needs.gate.outputs.num }}
+          PR: ${{ needs.start.outputs.pr_number || needs.gate.outputs.pr }}
+          START_RESULT: ${{ needs.start.result }}
+          START_CHANGED: ${{ needs.start.outputs.changed }}
+          QA1: ${{ needs.qa1.outputs.passed }}
+          QA2: ${{ needs.qa2.outputs.passed }}
+          QA3: ${{ needs.qa3.outputs.passed }}
+          SHA1: ${{ needs.qa1.outputs.sha }}
+          SHA2: ${{ needs.qa2.outputs.sha }}
+          SHA3: ${{ needs.qa3.outputs.sha }}
+          LAST_SUMMARY: ${{ needs.qa3.outputs.summary || needs.qa2.outputs.summary || needs.qa1.outputs.summary }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          NOTIFY: ${{ vars.CLAUDE_NOTIFY || 'jeffreyjoju' }}
+        run: |
+          state=failure; sha=""; rounds=""
+          if [ "$QA1" = true ]; then state=success; sha=$SHA1; rounds=0
+          elif [ "$QA2" = true ]; then state=success; sha=$SHA2; rounds=1
+          elif [ "$QA3" = true ]; then state=success; sha=$SHA3; rounds=2
+          else sha=${SHA3:-${SHA2:-$SHA1}}; fi
+
+          if [ "$START_RESULT" != success ]; then
+            msg="@$NOTIFY Claude could not finish #$NUM (agent step failed or timed out, possibly a Claude usage limit). Log: $RUN_URL"
+          elif [ "$START_CHANGED" != true ]; then
+            msg="@$NOTIFY Claude made no changes for #$NUM (unclear request, or nothing to do). Log: $RUN_URL"
+          elif [ "$state" = success ]; then
+            msg="@$NOTIFY ✅ QA passed on #$PR after $rounds fix round(s). Ready to review and merge. Log: $RUN_URL"
+          else
+            msg=$(printf '@%s ❌ Gave up on #%s: QA still failing after the last fix round. Log: %s\n\nLast QA output:\n%s' \
+              "$NOTIFY" "${PR:-$NUM}" "$RUN_URL" "${LAST_SUMMARY:0:4000}")
+          fi
+
+          gh issue comment "${PR:-$NUM}" --repo "$REPO" --body "$msg"
+          if [ -n "$PR" ] && [ -n "$sha" ]; then
+            if [ "$state" = success ]; then add=claude:passed; rm=claude:gave-up; else add=claude:gave-up; rm=claude:passed; fi
+            gh pr edit "$PR" --repo "$REPO" --add-label "$add" --remove-label "$rm" 2>/dev/null \
+              || gh pr edit "$PR" --repo "$REPO" --add-label "$add" || true
+          fi
+          if [ -n "$sha" ]; then
+            # Shows on the PR as a check, since GITHUB_TOKEN pushes don't start qa.yml on their own.
+            gh api -X POST "repos/$REPO/statuses/$sha" -f state="$state" -f context="QA (Claude loop)" \
+              -f target_url="$RUN_URL" -f description="$([ "$state" = success ] && echo passed || echo 'failed after fix rounds')" >/dev/null
+          fi

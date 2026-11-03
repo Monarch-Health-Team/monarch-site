@@ -1,22 +1,56 @@
 name: QA
 
+# Lint, build, Playwright + axe, Lighthouse (median of 3 runs).
+#  - pull_request / workflow_dispatch: normal check, goes red on failure.
+#  - workflow_call: used by claude-build.yml. The job stays green and returns
+#    `passed` + a short `summary` so the caller can hand failures to Claude.
 on:
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: Branch or SHA to test
+        required: true
+        type: string
+    outputs:
+      passed:
+        description: "'true' when every QA step passed"
+        value: ${{ jobs.qa.outputs.passed }}
+      summary:
+        description: Failure summary, max 6000 chars (empty on pass)
+        value: ${{ jobs.qa.outputs.summary }}
+      sha:
+        description: Commit that was tested
+        value: ${{ jobs.qa.outputs.sha }}
 
 permissions:
   contents: read
 
 concurrency:
-  group: qa-${{ github.ref }}
+  group: qa-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   qa:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    outputs:
+      passed: ${{ steps.result.outputs.passed }}
+      summary: ${{ steps.result.outputs.summary }}
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || '' }}
+          persist-credentials: false
+
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: pnpm/action-setup@v4
         with:
@@ -30,41 +64,76 @@ jobs:
       # The repo is locked with pnpm-lock.yaml (no package-lock.json), so the
       # frozen-lockfile install is the equivalent of `npm ci`.
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        id: install
+        continue-on-error: true
+        run: pnpm install --frozen-lockfile 2>&1 | tee /tmp/qa-install.log
 
       - name: Lint
         id: lint
+        if: steps.install.outcome == 'success'
         continue-on-error: true
-        run: pnpm run --if-present lint
+        run: pnpm run --if-present lint 2>&1 | tee /tmp/qa-lint.log
 
       - name: Build
         id: build
-        run: pnpm run build
+        if: steps.install.outcome == 'success'
+        continue-on-error: true
+        run: pnpm run build 2>&1 | tee /tmp/qa-build.log
 
       - name: Install Chromium
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
         run: pnpm exec playwright install --with-deps chromium
 
       - name: Playwright (pages, links, forms, screenshots, axe)
         id: e2e
-        run: pnpm run test:e2e
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: pnpm run test:e2e 2>&1 | tee /tmp/qa-e2e.log
 
-      - name: Lighthouse CI
+      - name: Lighthouse CI (3 runs, median)
         id: lhci
-        run: pnpm exec lhci autorun
+        if: steps.build.outcome == 'success'
+        continue-on-error: true
+        run: pnpm exec lhci autorun 2>&1 | tee /tmp/qa-lhci.log
 
-      - name: Job summary
+      - name: Result
+        id: result
         if: always()
+        env:
+          INSTALL: ${{ steps.install.outcome }}
+          LINT: ${{ steps.lint.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          E2E: ${{ steps.e2e.outcome }}
+          LHCI: ${{ steps.lhci.outcome }}
         run: |
           icon() { case "$1" in success) echo "PASS";; skipped) echo "SKIPPED";; *) echo "FAIL";; esac; }
+          s=""
+          add() { s+=$'\n'"### $1 failed"$'\n''```'$'\n'"$(grep -v '^\s*$' "$2" 2>/dev/null | grep -v '■' | tail -n "$3" | cut -c1-300)"$'\n''```'; }
+          if [ "$INSTALL" != success ]; then
+            add "pnpm install" /tmp/qa-install.log 40
+          else
+            [ "$LINT" = success ]  || add "Lint" /tmp/qa-lint.log 40
+            if [ "$BUILD" != success ]; then
+              add "Build" /tmp/qa-build.log 50
+            else
+              [ "$E2E" = success ]  || add "Playwright + axe" /tmp/qa-e2e.log 60
+              [ "$LHCI" = success ] || add "Lighthouse (median of 3; perf>=85, a11y>=95, best-practices>=90, SEO>=90)" /tmp/qa-lhci.log 30
+            fi
+          fi
+          s="${s:0:6000}"
+          if [ -z "$s" ]; then passed=true; else passed=false; fi
+          echo "passed=$passed" >> "$GITHUB_OUTPUT"
+          { echo "summary<<QA_EOF"; printf '%s\n' "$s"; echo "QA_EOF"; } >> "$GITHUB_OUTPUT"
           {
             echo "## QA summary"
             echo ""
             echo "| Check | Result |"
             echo "| --- | --- |"
-            echo "| Lint | $(icon '${{ steps.lint.outcome }}') |"
-            echo "| Build | $(icon '${{ steps.build.outcome }}') |"
-            echo "| Playwright + axe (mobile 390x844, desktop 1440x900) | $(icon '${{ steps.e2e.outcome }}') |"
-            echo "| Lighthouse CI (perf>=85, a11y>=95, best-practices>=90, SEO>=90) | $(icon '${{ steps.lhci.outcome }}') |"
+            echo "| Lint | $(icon "$LINT") |"
+            echo "| Build | $(icon "$BUILD") |"
+            echo "| Playwright + axe (mobile 390x844, desktop 1440x900) | $(icon "$E2E") |"
+            echo "| Lighthouse CI, median of 3 (perf>=85, a11y>=95, best-practices>=90, SEO>=90) | $(icon "$LHCI") |"
             echo ""
             echo "Playwright report, screenshots and Lighthouse results are attached as artifacts."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -73,6 +142,12 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: qa-artifacts
+          name: qa-artifacts-${{ steps.sha.outputs.sha }}
           path: qa-artifacts/
           if-no-files-found: ignore
+
+      - name: Fail the check (direct runs only)
+        # In a workflow_call, github.workflow is the caller's name, so this
+        # only fails the job for pull_request / workflow_dispatch runs.
+        if: always() && steps.result.outputs.passed != 'true' && github.workflow == 'QA'
+        run: exit 1
