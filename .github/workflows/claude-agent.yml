@@ -6,7 +6,16 @@ name: Claude agent (reusable)
 #               instructions, push.
 # Two jobs on purpose:
 #   edit    - runs Claude with a READ-ONLY GitHub token. Claude can only edit
-#             files and run pnpm lint/typecheck/build. Output is a patch.
+#             files and run the repo's lint/typecheck/test/build scripts (pnpm or
+#             npm, picked from the lockfile). Output is a patch.
+#             Bootstrap: while main has no package.json, Claude may also run
+#             `pnpm install` / `pnpm add` to scaffold the app, and the new
+#             pnpm-lock.yaml is kept (afterwards the lockfile is off limits again).
+#             In build mode Claude also writes .qa/issues/issue-N.spec.ts, a Playwright
+#             test of the issue's acceptance criteria that QA runs (template v2).
+#             In QA-driven fix rounds (round 1-2) existing .qa/issues files are
+#             restored, so a fix round cannot weaken the issue test; .github is
+#             always restored, so the base QA checks can't be touched at all.
 #   publish - plain git/gh steps (no AI) apply the patch, commit, push, open PR.
 on:
   workflow_call:
@@ -71,16 +80,49 @@ jobs:
           ref: ${{ inputs.mode == 'build' && 'main' || inputs.branch }}
           persist-credentials: false
 
+      - name: Detect app
+        id: app
+        run: |
+          pkg=false; lock=false; pmf=""; pm=pnpm; lockfile=pnpm-lock.yaml
+          [ -f package.json ] && pkg=true && pmf=$(jq -r '.packageManager // ""' package.json)
+          if [ -f pnpm-lock.yaml ]; then lock=true
+          elif [ -f package-lock.json ]; then lock=true; pm=npm; lockfile=package-lock.json
+          elif [[ "$pmf" == npm@* ]]; then pm=npm; lockfile=package-lock.json; fi
+          ver=""; [[ "$pmf" == pnpm@* ]] || ver=$(jq -r '.pnpmVersion // "10"' .github/qa.config.json 2>/dev/null || echo 10)
+          node=$(jq -r '.node // "22"' .github/qa.config.json 2>/dev/null || echo 22)
+          # The checks Claude may run, in the repo's own words (only scripts that exist).
+          run="pnpm"; [ "$pm" = npm ] && run="npm run"
+          checks=""
+          for s in lint typecheck test build; do
+            if [ -f package.json ] && jq -e --arg s "$s" '.scripts[$s] // empty' package.json >/dev/null; then checks+="${checks:+|}$run $s"; fi
+          done
+          [ -n "$checks" ] || checks="$run lint|$run typecheck|$run test|$run build"
+          { echo "has_package=$pkg"; echo "has_lockfile=$lock"; echo "pm=$pm"; echo "lockfile=$lockfile"
+            echo "pnpm_version=$ver"; echo "node_version=$node"; echo "checks=$checks"; } | tee -a "$GITHUB_OUTPUT"
+
       - uses: pnpm/action-setup@v4
+        if: steps.app.outputs.pm == 'pnpm'
         with:
-          version: 10
+          version: ${{ steps.app.outputs.pnpm_version }}
 
       - uses: actions/setup-node@v4
+        if: steps.app.outputs.has_lockfile == 'true'
         with:
-          node-version: lts/*
-          cache: pnpm
+          node-version: ${{ steps.app.outputs.node_version }}
+          cache: ${{ steps.app.outputs.pm }}
 
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/setup-node@v4
+        if: steps.app.outputs.has_lockfile != 'true'
+        with:
+          node-version: ${{ steps.app.outputs.node_version }}
+
+      - name: Install dependencies
+        if: steps.app.outputs.has_package == 'true'
+        run: |
+          if [ -f pnpm-lock.yaml ]; then pnpm install --frozen-lockfile
+          elif [ -f package-lock.json ]; then npm ci --no-audit --no-fund
+          elif [ "${{ steps.app.outputs.pm }}" = npm ]; then npm install --no-audit --no-fund
+          else pnpm install --no-frozen-lockfile; fi
 
       - name: Build the prompt
         id: ctx
@@ -88,9 +130,11 @@ jobs:
           QA_SUMMARY: ${{ inputs.qa_summary }}
           INSTRUCTIONS: ${{ inputs.instructions }}
           REPO_DESCRIPTION: ${{ vars.CLAUDE_REPO_DESCRIPTION }}
+          HAS_PACKAGE: ${{ steps.app.outputs.has_package }}
+          CHECKS: ${{ steps.app.outputs.checks }}
         run: |
           PROJECT="$REPO_DESCRIPTION"
-          [ -n "$PROJECT" ] || PROJECT=$(sed -n 's/^Project: *//p' CLAUDE.md 2>/dev/null | head -n1)
+          [ -n "$PROJECT" ] || PROJECT=$(sed -n 's/^Project: *//p' CLAUDE.md .claude/CLAUDE.md 2>/dev/null | head -n1 || true)
           [ -n "$PROJECT" ] || PROJECT="$REPO"
           title=$(gh api "repos/$REPO/issues/$NUM" --jq '.title')
           body=$(gh api "repos/$REPO/issues/$NUM" --jq '.body // ""')
@@ -102,26 +146,45 @@ jobs:
               echo
               echo "Description:"
               printf '%s\n' "$body"
+              if [ "$HAS_PACKAGE" != true ]; then
+                echo
+                echo "This repository has no app yet (no package.json). Scaffold it first, following CLAUDE.md:"
+                echo "Next.js (App Router) + TypeScript + Tailwind CSS, pnpm, source in src/. Write package.json by hand"
+                echo "(you cannot run create-next-app) with scripts dev, build, start, lint (eslint), typecheck (tsc --noEmit)"
+                echo "and, if you add tests, test (vitest run). Then run \`pnpm install\` so pnpm-lock.yaml is created; you may"
+                echo "use \`pnpm add\` / \`pnpm add -D\` for the packages the scaffold needs. Keep dependencies minimal."
+              fi
+              echo
+              echo "Also write a Playwright test for this issue's acceptance criteria at .qa/issues/issue-$NUM.spec.ts,"
+              echo "following .github/e2e/ISSUE-SPEC.md (import only @playwright/test, relative URLs, role/text selectors)."
+              echo "You can't run it; QA runs it on desktop and mobile. Test only what this issue asks for."
             else
               echo "You are on the branch of pull request #$NUM: $title"
               if [ -n "$INSTRUCTIONS" ]; then
                 echo
                 echo "The owner asked for these changes:"
                 printf '%s\n' "$INSTRUCTIONS"
+                echo "If this changes what a test in .qa/issues/ checks, update that test too (see .github/e2e/ISSUE-SPEC.md)."
               fi
               if [ -n "$QA_SUMMARY" ]; then
                 echo
                 echo "Automated QA failed (fix round $ROUND of 2). Fix ONLY what is needed to make QA pass;"
-                echo "keep the intended change. QA output:"
+                echo "keep the intended change. Tests in .qa/issues/ are locked in this round (edits are reverted):"
+                echo "if an issue test fails, fix the app, not the test. QA output:"
                 printf '%s\n' "$QA_SUMMARY"
               fi
             fi
             echo
             echo "Rules: follow CLAUDE.md. Edit files only; you cannot run git or gh, and a separate step"
-            echo "commits your work. Before finishing, run \`pnpm lint\` and \`pnpm build\` and fix what you broke."
+            echo "commits your work. Files under .github/ are reset after you finish. Before finishing, run"
+            echo "$(printf '%s' "$CHECKS" | sed 's/|/, /g') and fix what you broke."
             echo "Finish with a 3-6 line plain-English summary of what you changed."
           } > "$RUNNER_TEMP/prompt.txt"
           { echo "prompt<<PROMPT_EOF_7c1"; cat "$RUNNER_TEMP/prompt.txt"; echo "PROMPT_EOF_7c1"; } >> "$GITHUB_OUTPUT"
+          tools="Read,Edit,MultiEdit,Write,Glob,Grep,TodoWrite"
+          IFS='|' read -ra cs <<< "$CHECKS"; for c in "${cs[@]}"; do tools+=",Bash($c)"; done
+          [ "$HAS_PACKAGE" = true ] || tools+=",Bash(pnpm install),Bash(pnpm add:*)"
+          echo "tools=$tools" >> "$GITHUB_OUTPUT"
 
       - name: Run Claude Code
         id: claude
@@ -135,8 +198,8 @@ jobs:
           prompt: ${{ steps.ctx.outputs.prompt }}
           claude_args: >-
             --model ${{ vars.CLAUDE_MODEL || 'sonnet' }}
-            --max-turns ${{ vars.CLAUDE_MAX_TURNS || '40' }}
-            --allowedTools "Read,Edit,MultiEdit,Write,Glob,Grep,TodoWrite,Bash(pnpm lint),Bash(pnpm typecheck),Bash(pnpm build)"
+            --max-turns ${{ vars.CLAUDE_MAX_TURNS || (steps.app.outputs.has_package == 'true' && '40' || '60') }}
+            --allowedTools "${{ steps.ctx.outputs.tools }}"
             --disallowedTools "WebFetch,WebSearch"
 
       - name: Make the patch
@@ -144,11 +207,22 @@ jobs:
         if: always()
         env:
           EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
+          LOCKFILE: ${{ steps.app.outputs.lockfile }}
         run: |
-          # Workflows and lockfile are off limits for the agent.
-          git checkout HEAD -- .github pnpm-lock.yaml 2>/dev/null || true
+          # Workflows/QA checks, env files and (once it exists on main) the lockfile are off limits for the agent.
+          git checkout HEAD -- .github 2>/dev/null || true
           git clean -fdq -- .github
+          if git cat-file -e "HEAD:$LOCKFILE" 2>/dev/null; then
+            git checkout HEAD -- "$LOCKFILE"
+          elif git cat-file -e HEAD:package.json 2>/dev/null; then
+            rm -f "$LOCKFILE"   # app existed without a lockfile: the agent may not create one
+          fi
+          # QA-driven fix rounds may not weaken the issue tests already on the branch (new files are allowed).
+          if [ "$MODE" = fix ] && [ "$ROUND" != 0 ] && git cat-file -e HEAD:.qa/issues 2>/dev/null; then
+            git checkout HEAD -- .qa/issues
+          fi
           git add -A
+          git reset -q -- ':(glob)**/.env*' 2>/dev/null || true
           git diff --cached --binary > "$RUNNER_TEMP/claude.patch"
           if [ -s "$RUNNER_TEMP/claude.patch" ]; then echo "changed=true" >> "$GITHUB_OUTPUT"; else echo "changed=false" >> "$GITHUB_OUTPUT"; fi
           git diff --cached --stat
@@ -173,6 +247,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       contents: write
+      issues: read
       pull-requests: write
     outputs:
       sha: ${{ steps.commit.outputs.sha }}

@@ -1,0 +1,10 @@
+{
+  "//": "Team Beta QA v2 settings for monarch-site (Next.js, pnpm 10). Keeps its own Playwright + axe suite and its root lighthouserc.json (a11y >= 95).",
+  "node": "lts/*",
+  "lighthouserc": "lighthouserc.json",
+  "appE2e": "test:e2e",
+  "e2e": {},
+  "skip": [
+    "e2e"
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "qa-e2e",
+  "private": true,
+  "description": "QA browser checks for qa.sh e2e. Installed into $RUNNER_TEMP, never into the app. qa.sh sets the @playwright/test version from PLAYWRIGHT_VERSION.",
+  "dependencies": {
+    "@playwright/test": "1.64.1"
+  }
+}

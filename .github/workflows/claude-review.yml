@@ -1,0 +1,205 @@
+name: Claude review (reusable)
+
+# Called only by claude-build.yml, in the same run, after QA passed on a cc/* PR.
+#   analyze - Claude (read-only token, no shell, no web) reads a small context pack:
+#             the PR diff (capped), the issue, the QA summary and at most 4 screenshots,
+#             and writes a verdict file. Lean on purpose: it shares the Claude Pro limits
+#             with the builds (one short Sonnet session, max 8 turns).
+#   act     - plain gh steps (no AI): post the review; if the verdict is "fix" and the PR has had
+#             fewer than CLAUDE_REVIEW_MAX_ROUNDS (default 2) review fixes, post a `/claude fix`
+#             comment for the record AND dispatch claude-build.yml in fix mode. Otherwise label
+#             the PR claude:needs-human.
+# Why dispatch: comments posted with GITHUB_TOKEN never start other workflows, but
+# workflow_dispatch is the documented exception, so no PAT/extra secret is needed.
+on:
+  workflow_call:
+    inputs:
+      pr:
+        type: string
+        required: true
+      sha:
+        description: Commit QA passed on (its qa-artifacts-<sha> artifact is in this run)
+        type: string
+        required: true
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        required: true
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  MAX_ROUNDS: ${{ vars.CLAUDE_REVIEW_MAX_ROUNDS || '2' }}
+  MARKER: "<!-- claude-review-fix -->"
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      verdict: ${{ steps.v.outputs.verdict }}
+      rounds: ${{ steps.pack.outputs.rounds }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR: ${{ inputs.pr }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: qa-artifacts-${{ inputs.sha }}
+          path: ${{ runner.temp }}/qa
+
+      - name: Build the context pack
+        id: pack
+        run: |
+          d=.qa-review; mkdir -p "$d"
+          rounds=$(gh api "repos/$REPO/issues/$PR/comments" --paginate \
+            --jq "[.[] | select(.user.login == \"github-actions[bot]\" and (.body | contains(\"$MARKER\")))] | length" \
+            | jq -s 'add // 0')
+          echo "rounds=$rounds" >> "$GITHUB_OUTPUT"
+          # The issue the PR closes (falls back to the PR itself).
+          read -r title base < <(gh pr view "$PR" --repo "$REPO" --json title,baseRefName --jq '[.title, .baseRefName] | @tsv')
+          prbody=$(gh pr view "$PR" --repo "$REPO" --json body --jq .body)
+          issue=$(printf '%s' "$prbody" | grep -oiE '(closes|fixes|resolves) #[0-9]+' | head -n1 | grep -oE '[0-9]+' || true)
+          if [ -n "$issue" ]; then
+            gh api "repos/$REPO/issues/$issue" --jq '"# Issue #\(.number): \(.title)\n\n\(.body // "")"' | head -c 4000 > "$d/issue.md"
+          else
+            printf '# PR #%s: %s\n\n%s\n' "$PR" "$title" "$prbody" | head -c 4000 > "$d/issue.md"
+          fi
+          # Diff against the base, without lockfiles, images and the (reset) .github folder; capped.
+          git fetch -q origin "$base" --depth=200 2>/dev/null || true
+          git diff "origin/$base...HEAD" -- . ':(exclude)*lock*' ':(exclude).github/**' ':(exclude)**/*.png' \
+            ':(exclude)**/*.jpg' ':(exclude)**/*.jpeg' ':(exclude)**/*.webp' ':(exclude)**/*.svg' > "$RUNNER_TEMP/full.diff" || true
+          lines=$(wc -l < "$RUNNER_TEMP/full.diff")
+          { git diff --stat "origin/$base...HEAD" | tail -n 40; echo; head -n 1200 "$RUNNER_TEMP/full.diff"
+            [ "$lines" -gt 1200 ] && echo "... diff truncated ($lines lines total)"; } > "$d/diff.patch"
+          # QA summary (the result table + browser-check warnings).
+          cp "$RUNNER_TEMP/qa/qa-summary.md" "$d/qa-summary.md" 2>/dev/null || echo "QA passed (summary artifact missing)." > "$d/qa-summary.md"
+          # At most 4 screenshots: issue-test screenshots first, then the open mobile drawer and home.
+          n=0; : > "$d/screenshots.txt"
+          for f in $(ls "$RUNNER_TEMP"/qa/e2e/issue-screenshots/*.png 2>/dev/null | head -n 2) \
+                   "$RUNNER_TEMP/qa/e2e/screenshots/375/_drawer-open.png" \
+                   "$RUNNER_TEMP/qa/e2e/screenshots/375/home.png" \
+                   "$RUNNER_TEMP/qa/e2e/screenshots/1280/home.png"; do
+            [ -f "$f" ] && [ "$n" -lt 4 ] || continue
+            n=$((n+1)); cp "$f" "$d/shot-$n.png"; echo "$d/shot-$n.png  ($(basename "$(dirname "$f")")/$(basename "$f"))" >> "$d/screenshots.txt"
+          done
+          wc -c "$d"/* | tail -n 8
+
+      - name: Run Claude review
+        id: claude
+        uses: anthropics/claude-code-action@v1
+        timeout-minutes: 8
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          github_token: ${{ github.token }} # read-only; nothing in this job can comment or push
+          prompt: |
+            You review pull request #${{ inputs.pr }}. Automated QA already passed (lint, types, tests, build,
+            browser checks, Lighthouse). Your job: does the change do what the issue asks, and does it look right?
+            Read only these files: .qa-review/issue.md, .qa-review/diff.patch, .qa-review/qa-summary.md and the
+            images listed in .qa-review/screenshots.txt (at most 4). Open a source file only if the diff is
+            unclear. Don't run anything.
+            Ask for a fix only for a real defect: an acceptance criterion not met, a broken or clearly wrong
+            layout in a screenshot, an accessibility or security problem, or a bug visible in the diff. No style
+            nits, no refactors, nothing outside the issue.
+            Then write .qa-review/verdict.json and nothing else, exactly:
+            {"verdict": "pass" | "fix", "review": "<markdown, max 12 lines>", "fix": "<only when verdict is fix: max 8 short imperative lines, each one concrete change>"}
+          claude_args: >-
+            --model ${{ vars.CLAUDE_REVIEW_MODEL || 'sonnet' }}
+            --max-turns 8
+            --allowedTools "Read,Glob,Grep,Write"
+            --disallowedTools "Bash,Edit,MultiEdit,WebFetch,WebSearch"
+
+      - name: Read the verdict
+        id: v
+        if: always()
+        run: |
+          f=.qa-review/verdict.json
+          if jq -e '.verdict == "pass" or .verdict == "fix"' "$f" >/dev/null 2>&1; then
+            verdict=$(jq -r .verdict "$f")
+            jq -r '.review // ""' "$f" | head -c 3000 > "$RUNNER_TEMP/review.md"
+            jq -r '.fix // ""' "$f" | head -c 1500 > "$RUNNER_TEMP/fix.md"
+            [ "$verdict" = fix ] && [ ! -s "$RUNNER_TEMP/fix.md" ] && verdict=pass
+          else
+            verdict=error; : > "$RUNNER_TEMP/review.md"; : > "$RUNNER_TEMP/fix.md"
+          fi
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"; echo "verdict: $verdict"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: claude-review-${{ github.run_id }}-${{ inputs.sha }}
+          path: |
+            ${{ runner.temp }}/review.md
+            ${{ runner.temp }}/fix.md
+          retention-days: 3
+
+  act:
+    needs: analyze
+    if: always() && needs.analyze.result != 'cancelled'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PR: ${{ inputs.pr }}
+      VERDICT: ${{ needs.analyze.outputs.verdict || 'error' }}
+      ROUNDS: ${{ needs.analyze.outputs.rounds || '0' }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      NOTIFY: ${{ vars.CLAUDE_NOTIFY || 'jeffreyjoju' }}
+    steps:
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: claude-review-${{ github.run_id }}-${{ inputs.sha }}
+          path: ${{ runner.temp }}/r
+
+      - name: Post the review and, if needed, ask for a fix
+        run: |
+          review=$(cat "$RUNNER_TEMP/r/review.md" 2>/dev/null); fix=$(cat "$RUNNER_TEMP/r/fix.md" 2>/dev/null)
+          needs_human() {
+            gh label create claude:needs-human --repo "$REPO" --color D93F0B \
+              --description "Claude review loop stopped; a person must decide" >/dev/null 2>&1 || true
+            gh pr edit "$PR" --repo "$REPO" --add-label claude:needs-human || true
+            gh pr comment "$PR" --repo "$REPO" --body "@$NOTIFY $1 Log: $RUN_URL"
+          }
+          case "$VERDICT" in
+            pass)
+              printf '**Claude review: looks good.**\n\n%s\n' "$review" > body.md
+              gh pr review "$PR" --repo "$REPO" --comment --body-file body.md ;;
+            fix)
+              printf '**Claude review: changes needed.**\n\n%s\n\n**Requested fix:**\n%s\n' "$review" "$fix" > body.md
+              gh pr review "$PR" --repo "$REPO" --comment --body-file body.md
+              if [ "$ROUNDS" -lt "$MAX_ROUNDS" ]; then
+                n=$((ROUNDS + 1))
+                # For the record only: a GITHUB_TOKEN comment never starts a workflow, so this can't double-run.
+                printf '/claude fix %s\n\n_Review round %s of %s, started by Claude review._\n%s\n' "$fix" "$n" "$MAX_ROUNDS" "$MARKER" > fix-comment.md
+                gh pr comment "$PR" --repo "$REPO" --body-file fix-comment.md
+                gh workflow run claude-build.yml --repo "$REPO" --ref "${{ github.event.repository.default_branch || 'main' }}" \
+                  -f issue_number="$PR" -f instructions="$fix"
+              else
+                needs_human "Claude review still wants changes after $MAX_ROUNDS review fix rounds, so it stopped. Please review #$PR."
+              fi ;;
+            *)
+              needs_human "Claude review could not finish on #$PR (no valid verdict; possibly a Claude usage limit). QA itself passed." ;;
+          esac
