@@ -387,58 +387,6 @@ export default function HomePage() {
         </Container>
       </Section>
 
-      {/* ================================ knowing is not managing */}
-      {/* Added 7 Oct 2026 (Jeffrey): a mini section after the band. First
-          line is the heading, in orange; the last line is the orange bold
-          sign-off. Reworked 16 Oct 2026 the same way as the lifespan section
-          above: the picture in the middle (two sizes smaller), the first two
-          lines to its left and the rest to its right, the heading above. */}
-      <Section
-        tone="navy-wash"
-        labelledBy="managing-title"
-        className="py-14 md:py-20"
-      >
-        <Container>
-          <h2
-            id="managing-title"
-            className="text-center text-heading-2 font-bold text-orange-700"
-          >
-            Knowing your health is not the same as managing it.
-          </h2>
-          <div className="mt-8 grid items-center gap-8 text-center lg:grid-cols-[1fr_15rem_1fr] lg:gap-12 lg:text-left">
-            {/* eslint-disable-next-line @next/next/no-img-element -- an SVG has nothing for the image optimiser to do. */}
-            <img
-              src="/images/gen/trajectory.svg"
-              alt=""
-              aria-hidden
-              loading="lazy"
-              className="order-first mx-auto aspect-square w-full max-w-[15rem] lg:order-none"
-            />
-            <div className="space-y-4 text-body-lg font-normal text-neutral-900 lg:order-first">
-              <p>
-                An annual physical can tell you a great deal about your health
-                today.
-              </p>
-              <p>But what happens afterwards?</p>
-            </div>
-            {/* The four "Who ..." questions went on 8 Oct 2026 (MSP access
-                wording, for legal review): they implied Monarch provides
-                physician follow-up. */}
-            <div className="space-y-4 text-body-lg font-normal text-neutral-900">
-              <p>
-                Your family doctor looks after your insured care. Monarch adds
-                what an annual physical can’t: a plan built around your goals,
-                follow-through on every recommendation, and someone watching
-                your trajectory over time.
-              </p>
-              <p className="font-bold text-orange-700">
-                Monarch was built around what happens next.
-              </p>
-            </div>
-          </div>
-        </Container>
-      </Section>
-
       {/* ================================== 2. measure act evaluate — HM-3 */}
       {/* Above the twelve pillars: the method is the argument for the
           pillars, so it comes before them. Plain white, no photograph —
@@ -457,17 +405,6 @@ export default function HomePage() {
               the page. neutral-50 on the white section: the steps are
               drawn in rules and chips with no fills of their own, so the
               tile has to be the thing that lifts, not a border alone. */}
-          {/* Moved out of the tile and above it (Jeffrey, 7 Oct 2026): the
-              navy title and its sentence, centred, then the tile. */}
-          <div className="mb-8 text-center md:mb-10">
-            <Heading as="p" size="heading-1" className="mb-2 text-navy-900">
-              Beyond the Annual Physical
-            </Heading>
-            <p className="text-body-lg font-normal text-navy-900">
-              Annual assessment is a snapshot of your health and a checklist of
-              tests.
-            </p>
-          </div>
           <div className="rounded-2xl border border-neutral-200 bg-neutral-50 px-5 py-8 shadow-sm sm:px-8 md:px-8 md:py-12">
             {/* The heading alone. The line under it went on 21 Sep 2026
                 (client); the four steps say what it said. */}

@@ -65,7 +65,9 @@ const PLATE =
   "mx-auto w-fit max-w-full rounded-xl bg-white/90 px-4 py-2 shadow-sm backdrop-blur-sm";
 
 /** The three staged memberships, in order. Signature is not one of them. */
-const STAGED = MEMBERSHIPS.filter((m) => m.slug !== "signature");
+const STAGED = ["executive", "ageing-in-place", "signature"]
+  .map((slug) => MEMBERSHIPS.find((m) => m.slug === slug))
+  .filter((m): m is Membership => Boolean(m));
 
 /**
  * What the home page card shows, which is not what the nav shows (Jeffrey,
@@ -77,10 +79,8 @@ const STAGED = MEMBERSHIPS.filter((m) => m.slug !== "signature");
  */
 const CARD_COPY: Record<string, { name?: string; line: string }> =
   {
-    foundation: {
-      line: "I’m healthy and I want to stay that way.",
-    },
     executive: {
+      name: "Monarch Proactive",
       line: "I want to protect my health and performance.",
     },
     "ageing-in-place": {
@@ -111,13 +111,6 @@ export function MembershipCards() {
           </li>
         ))}
       </ul>
-
-      {/* Signature, the full width of the row above it. Not on the rail:
-          it is offered at any age, so putting it at one end of a timeline
-          would say the opposite of what it is. */}
-      <div className="mt-5">
-        <SignatureBlock />
-      </div>
     </div>
   );
 }
