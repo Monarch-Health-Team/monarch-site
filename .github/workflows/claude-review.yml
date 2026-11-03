@@ -73,7 +73,8 @@ jobs:
             | jq -s 'add // 0')
           echo "rounds=$rounds" >> "$GITHUB_OUTPUT"
           # The issue the PR closes (falls back to the PR itself).
-          read -r title base < <(gh pr view "$PR" --repo "$REPO" --json title,baseRefName --jq '[.title, .baseRefName] | @tsv')
+          title=$(gh pr view "$PR" --repo "$REPO" --json title --jq .title)
+          base=$(gh pr view "$PR" --repo "$REPO" --json baseRefName --jq .baseRefName)
           prbody=$(gh pr view "$PR" --repo "$REPO" --json body --jq .body)
           issue=$(printf '%s' "$prbody" | grep -oiE '(closes|fixes|resolves) #[0-9]+' | head -n1 | grep -oE '[0-9]+' || true)
           if [ -n "$issue" ]; then
