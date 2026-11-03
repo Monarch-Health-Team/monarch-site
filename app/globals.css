@@ -740,3 +740,11 @@
 .centered-page nav :where(ol, li, a, span) {
   text-align: left;
 }
+
+/* Home page: sections below the first two are not laid out or painted until
+   they near the viewport (Lighthouse, PR #6). The reserved height keeps the
+   scroll bar steady once they have been seen. */
+.home-deferred > :nth-child(n + 3) {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 720px;
+}

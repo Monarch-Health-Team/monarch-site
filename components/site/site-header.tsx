@@ -84,11 +84,13 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
     return () => window.clearTimeout(id);
   }, []);
 
-  // Close everything on navigation.
-  useEffect(() => {
+  // Close everything on navigation, by resetting during render.
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (prevPathname !== pathname) {
+    setPrevPathname(pathname);
     setMobileOpen(false);
     setOpenMenu(null);
-  }, [pathname]);
+  }
 
   // Escape closes whichever surface is open, and returns focus to its trigger
   // rather than dropping it to the document (TC-3.9).
