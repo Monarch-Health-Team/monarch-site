@@ -104,8 +104,14 @@ function FooterNavGroup({
 }) {
   return (
     <nav
-      aria-labelledby={continued ? undefined : id}
-      aria-label={continued ? `${heading}, continued` : undefined}
+      aria-labelledby={continued || id === "footer-care-programmes" ? undefined : id}
+      aria-label={
+        continued
+          ? `${heading}, continued`
+          : id === "footer-care-programmes"
+            ? "Footer care options"
+            : undefined
+      }
       className={className}
     >
       {/* Orange, not navy (client request, 19 Sep 2026: every footer title
