@@ -75,7 +75,10 @@ const BODY = "text-body-lg font-normal text-neutral-900";
 
 export default function OurApproachPage() {
   return (
-    <div>
+    <div
+      data-clinical-review="https://github.com/Monarch-Health-Team/monarch-site/issues/24"
+      data-clinical-items="A1–A10"
+    >
       {/* ================================================== hero */}
       <section
         aria-labelledby="approach-title"
@@ -199,8 +202,9 @@ export default function OurApproachPage() {
       {SHOW_FRAILTY_SECTION && (
         <Section
           tone="white"
+          id="frailty"
           labelledBy="frailty-title"
-          className="py-14 md:py-20"
+          className="scroll-mt-40 py-14 md:py-20"
         >
           <Container>
             <div className="max-w-3xl space-y-4">
