@@ -18,3 +18,18 @@
  */
 export const SHOW_TEAM_PAGE = false;
 export const SHOW_COMMUNITIES_PAGE = false;
+
+/**
+ * SHOW_FRAILTY_SECTION: the "Your frailty assessment" section on
+ * /our-approach. PENDING the lead doctor's clinical sign-off, so it must not
+ * reach production until JJ confirms. Set SHOW_FRAILTY_SECTION=on (or off) in
+ * the environment to force it either way; unset, it is off in production and
+ * in local builds, and on in Vercel preview deployments.
+ */
+const FRAILTY_ENV = process.env.SHOW_FRAILTY_SECTION;
+export const SHOW_FRAILTY_SECTION =
+  FRAILTY_ENV === "on"
+    ? true
+    : FRAILTY_ENV === "off"
+      ? false
+      : process.env.VERCEL_ENV === "preview";
