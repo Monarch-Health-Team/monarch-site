@@ -14,7 +14,7 @@ export const LIVE_PATHS = new Set<string>(["/", "/our-approach", "/care-programm
 export function liveHref(href: string): string {
   if (!href.startsWith("/") || href.startsWith("//")) return href; // #, http, mailto, tel
   const path = href.split(/[?#]/)[0] || "/";
-  return LIVE_PATHS.has(path) ? href : "#";
+  return LIVE_PATHS.has(path) ? href : "/";
 }
 
 type Props = ComponentProps<typeof NextLink>;
@@ -26,7 +26,7 @@ export default function Link({ href, children, className, ...rest }: Props) {
       ? liveHref(href)
       : !href.pathname || LIVE_PATHS.has(href.pathname)
         ? href
-        : "#";
+        : "/";
   return (
     <NextLink href={target} className={className} {...rest}>
       {children}
