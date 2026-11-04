@@ -149,7 +149,11 @@ export default function HomePage() {
   const recent = getAllPosts().slice(0, 3);
 
   return (
-    <div className="home-deferred">
+    <div
+      className="home-deferred"
+      data-clinical-review="https://github.com/Monarch-Health-Team/monarch-site/issues/24"
+      data-clinical-items="H1–H10"
+    >
       {/* ============================================== 1. hero — HM-1, HM-2 */}
       <section
         aria-labelledby="home-hero-title"
