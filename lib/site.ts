@@ -1,8 +1,8 @@
 export const SITE = {
   name: "Monarch Health",
   legalName: "Monarch Health",
-  // Title suffix. Was "Your healthspan, managed." (Dr. Sundren D1, 27 Sep 2026); changed 4 Oct 2026 by Jeffrey to match the logo tagline.
-  tagline: "Professional Healthspan Management",
+  // Title suffix and logo tagline (v4, Nov 2026).
+  tagline: "Continuous care for life",
   // Approved wording, Dr. Sundren 27 Sep 2026: D1. Q2: the place name
   // (Greater Victoria / Vancouver Island) is dropped; add one back for local
   // search only if Jeffrey or Dr. Sundren asks.

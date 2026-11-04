@@ -122,23 +122,13 @@ function FooterNavGroup({
           {heading}
         </h2>
       )}
-      {/* 44px per link (client, 23 Sep 2026), which is WCAG 2.5.5
-          Target Size (Enhanced) at AAA. They were 34px, which already
-          cleared the AA requirement - 2.5.8 asks for 24px, not the 44
-          the rule in globals.css names it after.
-
-          The gap between items goes so the pitch is exactly 44 rather
-          than 48: adjacent targets must not overlap, or a thumb aimed at
-          one link lands on its neighbour, and a taller target that
-          collides is worse than a short one that does not. The lists are
-          the tallest thing in the footer, so this costs 6px per link in
-          footer height. */}
+      {/* 17px links in 48px rows (v4): adjacent targets do not overlap. */}
       <ul className="mt-1">
         {links.map((link) => (
           <li key={link.href}>
             <Link
               href={link.href}
-              className="flex min-h-11 items-center justify-center text-body-sm text-navy-100 md:justify-start transition-colors duration-brand hover:text-orange-400"
+              className="flex min-h-12 items-center justify-center text-[17px] leading-6 text-navy-100 md:justify-start transition-colors duration-brand hover:text-orange-400"
             >
               {link.label}
             </Link>
@@ -191,13 +181,16 @@ export function SiteFooter() {
               height is set by its tallest column, Learn. Below lg it stacks
               as before. */}
           <div className="lg:w-60 lg:self-start">
-            <Logo variant="reversed" width={232} tagline="Professional Healthspan Management" className="max-md:ml-0! md:-ml-5" />
-            {/* No top margin here and mt-6 on the icons below (client,
-                27 Sep 2026): the tagline sits right under the logo's
-                clear-space padding (19px from the logo image from md, 8px
-                on phones), with 24px before the icons. No negative margin:
-                the clear space stays intact. */}
-            <p className="text-body-sm text-navy-200 measure-tight max-md:mx-auto">
+            <div className="flex justify-center md:justify-start">
+              <Logo
+                variant="reversed"
+                width={260}
+                mobileWidth={232}
+                desktopFrom="md"
+                tagline={SITE.tagline}
+              />
+            </div>
+            <p className="mt-2 text-body-sm text-navy-200 measure-tight max-md:mx-auto">
               {SITE.region}
             </p>
             <div className="mt-6 flex justify-center gap-2 md:justify-start">
@@ -266,36 +259,23 @@ export function SiteFooter() {
               stack as before. */}
           <div className="contents lg:flex lg:flex-1 lg:items-start lg:justify-evenly">
             <FooterNavGroup
-              heading="Membership"
-              links={FOOTER_NAV.Membership}
-              className="lg:w-40 lg:self-center"
+              heading="EXPLORE"
+              id="footer-explore"
+              links={FOOTER_NAV.EXPLORE}
+              className="lg:w-56"
             />
-
-            {/* Learn runs in two columns: the first nine topics on the left,
-                the last four on the right with Research beneath them, so
-                the group is no taller than the brand block. */}
-            <div className="lg:grid lg:w-[22rem] lg:grid-cols-2 lg:gap-x-8">
-              <FooterNavGroup
-                heading="Learn"
-                links={FOOTER_NAV.Learn.slice(0, 9)}
-              />
-              <div className="flex flex-col gap-5">
-                <FooterNavGroup
-                  heading="Learn"
-                  continued
-                  links={FOOTER_NAV.Learn.slice(9)}
-                />
-                <FooterNavGroup
-                  heading="Research"
-                  links={FOOTER_NAV.Research}
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-5 lg:w-32">
-              <FooterNavGroup heading="Practice" links={FOOTER_NAV.Practice} />
-              <FooterNavGroup heading="Company" links={FOOTER_NAV.Company} />
-            </div>
+            <FooterNavGroup
+              heading="CARE PROGRAMMES"
+              id="footer-care-programmes"
+              links={FOOTER_NAV["CARE PROGRAMMES"]}
+              className="lg:w-52"
+            />
+            <FooterNavGroup
+              heading="POLICIES & INFORMATION"
+              id="footer-policies"
+              links={FOOTER_NAV["POLICIES & INFORMATION"]}
+              className="lg:w-60"
+            />
           </div>
         </div>
 

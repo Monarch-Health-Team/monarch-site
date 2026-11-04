@@ -1,505 +1,504 @@
 "use client";
 
-import { useState, useEffect, useLayoutEffect, useRef } from "react";
-import dynamic from "next/dynamic";
+import { useState, useEffect, useRef } from "react";
 import Link from "@/components/site/live-link";
 import { usePathname } from "next/navigation";
-import { Menu, X, ChevronDown } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  CircleUserRound,
+  Menu,
+  Phone,
+  X,
+} from "lucide-react";
 import type { NavBarItem } from "./nav-bar-data";
+import MegaMenu from "./mega-menu";
 import { Logo } from "./logo";
-import { activeHref, pathOf } from "./nav-active";
-import { HeaderSearchLink } from "./header-search-link";
+import { isCurrent, pathOf } from "./nav-active";
 import { cn } from "@/lib/utils";
-import { SOFT_LAUNCH_ON } from "@/lib/soft-launch";
+import { SITE } from "@/lib/site";
 
-/* The mega menu is only ever needed after the reader reaches for a trigger,
-   so it is its own chunk, fetched shortly after load (see below) or on
-   the first pointer or focus near the bar. ssr: false because it is never
-   open in the server HTML. */
-const loadMegaMenu = () => import("./mega-menu");
-const MegaMenu = dynamic(loadMegaMenu, { ssr: false });
+/* Not imported from lib/nav: that file pulls the memberships content into the
+   header's JavaScript. These two are the same values as lib/nav's CTA_LINK and
+   SIGN_IN_HREF. */
+const CTA_LABEL = "Arrange a Conversation";
+const CTA_HREF = "/contact";
+const SIGN_IN_HREF = "/sign-in";
+const CALL_LABEL = `Call ${SITE.phone}`;
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** "page" on the page itself, "true" on a section that contains it. */
+function currentOf(pathname: string, href: string) {
+  if (pathname === pathOf(href)) return "page" as const;
+  return isCurrent(pathname, href) ? ("true" as const) : undefined;
+}
 
 /**
- * One style for every primary link, so the bar reads as a single row rather
- * than five separately tuned items. Active is bold orange; the rest are quiet
- * and go orange on hover. `overlay` swaps the palette for the transparent bar
- * over the hero.
+ * One style for every desktop link. Current is bold navy plus a 3px orange
+ * bar, so it never relies on colour alone. On the navy-50 row the quiet links
+ * are orange-700 (7:1), not orange-600 (4.16:1 on that band).
  */
-function navLinkClass(active: boolean, overlay: boolean) {
+function deskLinkClass(active: boolean, band: "navy" | "white") {
   return cn(
-    "flex target-min items-center gap-1 whitespace-nowrap rounded-md px-3 py-2 text-label transition-colors duration-brand",
+    "relative flex min-h-12 items-center gap-1 whitespace-nowrap rounded-md px-3 transition-colors motion-reduce:transition-none",
     active
-      ? overlay
-        ? "font-bold text-orange-400"
-        : "font-bold text-orange-700"
-      : overlay
-        ? "text-white hover:text-orange-400"
-        : "text-neutral-700 hover:text-orange-700",
+      ? "font-bold text-navy-900 after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:bg-orange-600 after:content-['']"
+      : band === "navy"
+        ? "text-orange-700 hover:text-orange-800 hover:underline"
+        : "text-navy-900 hover:text-orange-700",
   );
 }
 
+const ctaClass =
+  "inline-flex h-14 items-center justify-center gap-2 rounded-[10px] bg-orange-600 px-6 text-base font-bold whitespace-nowrap text-white transition-colors hover:bg-orange-700 motion-reduce:transition-none";
+
 export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [openMenu, setOpenMenu] = useState<string | null>(null);
   const pathname = usePathname();
-  const navRef = useRef<HTMLElement>(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileCare, setMobileCare] = useState(false);
+  const [slidIn, setSlidIn] = useState(false);
+  const [careOpen, setCareOpen] = useState(false);
 
-  /*
-   * One header everywhere: the light glass bar, over the hero as much as
-   * over the rest of the site (client request, 18 Sep 2026). The bar used
-   * to be transparent with white copy on the first screen of the home page
-   * and turn solid on scroll. That navy-glass variant is still wired through
-   * `overlay` so it can be turned back on; today it is never true.
-   */
-  const isHome = pathname === "/";
-  const overlay: boolean = false;
-  const openItem = nav.find((i) => i.label === openMenu && i.children);
+  const utility = nav.filter((i) => i.row === "utility");
+  const main = nav.filter((i) => i.row === "main");
 
-  /*
-   * Moving from one menu to the next: the panel stays mounted, its height
-   * eases to the new content, and the outgoing section dissolves over the
-   * incoming one. `prevItem` is the section on its way out, kept for the
-   * length of the fade.
-   */
-  const [prevItem, setPrevItem] = useState<string | null>(null);
-  const lastOpenRef = useRef<string | null>(null);
-  useEffect(() => {
-    const last = lastOpenRef.current;
-    lastOpenRef.current = openItem?.label ?? null;
-    if (openItem && last && last !== openItem.label) {
-      setPrevItem(last);
-      const t = window.setTimeout(() => setPrevItem(null), 400);
-      return () => window.clearTimeout(t);
-    }
-    if (!openItem) setPrevItem(null);
-  }, [openItem]);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const mobileTriggerRef = useRef<HTMLButtonElement>(null);
-
-  // Fetch the menu chunk when the reader first reaches for the header (the
-  // handlers on <header>), or failing that well after the page has settled,
-  // so nothing competes with the first screen or its hydration.
-  useEffect(() => {
-    const id = window.setTimeout(() => void loadMegaMenu(), 8000);
-    return () => window.clearTimeout(id);
-  }, []);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const careWrapRef = useRef<HTMLLIElement>(null);
+  const careTriggerRef = useRef<HTMLButtonElement>(null);
+  const carePanelRef = useRef<HTMLUListElement>(null);
+  const focusFirstRef = useRef(false);
 
   // Close everything on navigation, by resetting during render.
   const [prevPathname, setPrevPathname] = useState(pathname);
   if (prevPathname !== pathname) {
     setPrevPathname(pathname);
     setMobileOpen(false);
-    setOpenMenu(null);
+    setCareOpen(false);
   }
 
-  // Escape closes whichever surface is open, and returns focus to its trigger
-  // rather than dropping it to the document (TC-3.9).
+  /* The phone menu is a modal surface. Focus moves into it when it opens and
+     back to the Menu button when it closes; Tab cycles inside it; Escape
+     closes it. The page behind cannot scroll. */
+  const wasOpen = useRef(false);
   useEffect(() => {
+    if (mobileOpen) closeRef.current?.focus();
+    else if (wasOpen.current) menuTriggerRef.current?.focus();
+    wasOpen.current = mobileOpen;
+    const id = window.requestAnimationFrame(() => setSlidIn(mobileOpen));
+    document.body.style.overflow = mobileOpen ? "hidden" : "";
+    return () => {
+      window.cancelAnimationFrame(id);
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key !== "Escape") return;
-      if (mobileOpen) {
+      if (e.key === "Escape") {
+        e.preventDefault();
         setMobileOpen(false);
-        mobileTriggerRef.current?.focus();
+        return;
       }
-      setOpenMenu(null);
+      if (e.key !== "Tab") return;
+      const items = [
+        ...(sheetRef.current?.querySelectorAll<HTMLElement>(FOCUSABLE) ?? []),
+      ].filter((el) => el.getClientRects().length > 0);
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const at = document.activeElement;
+      const inside = sheetRef.current?.contains(at);
+      if (!inside || (e.shiftKey && at === first)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      } else if (!e.shiftKey && at === last) {
+        e.preventDefault();
+        first.focus();
+      }
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [mobileOpen]);
 
-  // Dismiss the desktop mega-menu when focus leaves the header entirely.
-  // The panel sits outside the <nav>, so the test has to be the header, or
-  // tabbing into the panel would close it (found by the 10 Sep audit).
-  const headerRef = useRef<HTMLElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
+  /* Care Programmes panel: opens on click, Enter, Space or Down Arrow (Down
+     also lands on the first row); closes on Escape (focus back on the
+     button), on a click elsewhere, and when focus leaves it. */
   useEffect(() => {
-    function onFocusIn(e: FocusEvent) {
-      if (headerRef.current && !headerRef.current.contains(e.target as Node)) {
-        setOpenMenu(null);
-      }
+    if (!careOpen) return;
+    if (focusFirstRef.current) {
+      focusFirstRef.current = false;
+      carePanelRef.current?.querySelector<HTMLElement>("a[href]")?.focus();
     }
-    document.addEventListener("focusin", onFocusIn);
-    return () => document.removeEventListener("focusin", onFocusIn);
-  }, []);
+    function outside(e: Event) {
+      if (!careWrapRef.current?.contains(e.target as Node)) setCareOpen(false);
+    }
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("focusin", outside);
+    return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("focusin", outside);
+    };
+  }, [careOpen]);
 
-  /**
-   * Keyboard path into the panel. Tab goes from an open trigger into its
-   * panel (onHeaderKeyDown, below); ArrowDown (or Enter on an already-open
-   * trigger) also jumps to the first link in the panel. Escape inside the
-   * panel closes it and returns focus to the trigger that opened it.
-   */
-  const triggerRefs = useRef<Record<string, HTMLAnchorElement | null>>({});
-  function onTriggerKeyDown(e: React.KeyboardEvent, label: string) {
-    /* The menu opens on Down Arrow or Space, or Enter once it is open (by
-       the pointer): focus alone no longer opens it, so tabbing along the bar
-       is five stops, not five stops plus every link in every menu. Enter on
-       a closed trigger follows its link to the section page. */
-    if (
-      e.key === "ArrowDown" ||
-      e.key === " " ||
-      (e.key === "Enter" && openMenu === label)
+  function onCareKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Escape" && careOpen) {
+      e.preventDefault();
+      setCareOpen(false);
+      careTriggerRef.current?.focus();
+    } else if (
+      e.key === "ArrowDown" &&
+      e.target === careTriggerRef.current
     ) {
       e.preventDefault();
-      setOpenMenu(label);
-      window.requestAnimationFrame(() => {
-        panelRef.current?.querySelector<HTMLAnchorElement>("a")?.focus();
-      });
+      if (careOpen) {
+        carePanelRef.current?.querySelector<HTMLElement>("a[href]")?.focus();
+      } else {
+        focusFirstRef.current = true;
+        setCareOpen(true);
+      }
     }
   }
-  /**
-   * Tab order for the desktop menus (WAI-ARIA disclosure navigation). The
-   * panel sits after the whole bar in the DOM, so left to the browser its
-   * links would come after "Sign in" rather than after their own trigger.
-   * While a panel is open, Tab and Shift+Tab walk the bar with that panel's
-   * links spliced in straight after its trigger, and Tab from the last link
-   * goes on to the next control in the bar. Read from the DOM, not from
-   * state, so a key pressed before a re-render still sees the menu that is
-   * open.
-   */
-  function onHeaderKeyDown(e: React.KeyboardEvent) {
-    onMobileTab(e);
-    if (e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
-    const header = headerRef.current;
-    const panel = panelRef.current;
-    const content = contentRef.current;
-    const trigger = navRef.current?.querySelector<HTMLElement>(
-      '[data-menu-trigger][aria-expanded="true"]',
+
+  const mobileLinkClass = (current: boolean) =>
+    cn(
+      "flex min-h-14 w-full items-center gap-3 px-5 text-left text-xl text-navy-900 hover:bg-orange-50",
+      current &&
+        "border-l-4 border-orange-600 bg-orange-50 pl-4 font-bold hover:bg-orange-50",
     );
-    if (!header || !panel || !content || !trigger) return;
-    const tabbable = [
-      ...header.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ),
-    ].filter((el) => !el.closest("[inert]") && el.getClientRects().length > 0);
-    const links = tabbable.filter((el) => content.contains(el));
-    if (links.length === 0) return;
-    const bar = tabbable.filter((el) => !panel.contains(el));
-    const at = bar.indexOf(trigger);
-    if (at === -1) return;
-    const order = [...bar.slice(0, at + 1), ...links, ...bar.slice(at + 1)];
-    const i = order.indexOf(document.activeElement as HTMLElement);
-    if (i === -1) return;
-    const next = order[i + (e.shiftKey ? -1 : 1)];
-    if (next) {
-      e.preventDefault();
-      next.focus();
-    } else if (!e.shiftKey) {
-      // Leaving the header forwards: the browser's own Tab would go into
-      // the panel next, so take it out of the order. The focus moving out
-      // then closes the menu (onFocusIn above), which unmounts the panel;
-      // the reset only matters if focus left for the browser's own UI.
-      panel.inert = true;
-      window.setTimeout(() => {
-        panel.inert = false;
-      });
-    }
-  }
-  function onPanelKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Escape" && openMenu) {
-      e.stopPropagation();
-      const trigger = triggerRefs.current[openMenu];
-      setOpenMenu(null);
-      trigger?.focus();
-    }
-  }
-
-  useEffect(() => {
-    document.body.style.overflow = mobileOpen ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [mobileOpen]);
-
-  // The sheet must end at the viewport bottom, wherever the bar sits. Its
-  // class caps it at 100dvh minus a nominal bar height, which assumes the bar
-  // is at the top of the window; at scroll 0 with the soft-launch banner
-  // above the sticky bar (docs/changes/soft-launch-switch) that left the last
-  // items cut off, and from `sm` the real bar is already taller than the
-  // nominal one. So the sheet's own measured top is used, set before paint;
-  // the page cannot scroll while it is open, and a resize re-measures.
-  const mobileNavRef = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const sheet = mobileNavRef.current;
-    if (!mobileOpen || !sheet) return;
-    const fit = () => {
-      const top = Math.max(0, sheet.getBoundingClientRect().top);
-      sheet.style.maxHeight = `calc(100dvh - ${top}px)`;
-    };
-    fit();
-    window.addEventListener("resize", fit);
-    return () => window.removeEventListener("resize", fit);
-  }, [mobileOpen]);
-
-  /* The mobile sheet is a modal surface: focus moves into it when it opens
-     and Tab cycles within it and its button (TC-3.9 says focus is trapped).
-     Escape, above, closes it and returns focus to the button. */
-  useEffect(() => {
-    if (!mobileOpen) return;
-    const t = window.setTimeout(() => {
-      /* The first section link, not the sign-in control above it: that one
-         is redrawn once the session loads, which would drop focus. */
-      mobileNavRef.current?.querySelector<HTMLElement>("ul a[href]")?.focus();
-    }, 30);
-    return () => window.clearTimeout(t);
-  }, [mobileOpen]);
-  function onMobileTab(e: React.KeyboardEvent) {
-    if (!mobileOpen || e.key !== "Tab") return;
-    const sheet = mobileNavRef.current;
-    const trigger = mobileTriggerRef.current;
-    if (!sheet || !trigger) return;
-    const items = [
-      trigger,
-      ...sheet.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ),
-    ];
-    const first = items[0];
-    const last = items[items.length - 1];
-    const at = document.activeElement;
-    if (e.shiftKey && at === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && at === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  }
-
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
-  /* A section is selected when the reader is on its own page or on any page
-     listed in its menu, so a sub page keeps its parent selected too. */
-  const isSectionActive = (item: NavBarItem) =>
-    isActive(item.href) || activeHref(item.hrefs, pathname) !== null;
+  const hereMark = (
+    <span aria-hidden className="ml-auto text-sm font-bold text-orange-700">
+      You are here
+    </span>
+  );
 
   return (
-    <header
-      ref={headerRef}
-      data-overlay={overlay}
-      onPointerEnter={() => void loadMegaMenu()}
-      onFocus={() => void loadMegaMenu()}
-      onMouseLeave={() => setOpenMenu(null)}
-      onKeyDown={onHeaderKeyDown}
-      className={cn(
-        "top-0 z-50 transition-[background-color,border-color,box-shadow] duration-media ease-in-out",
-        // Fixed on the home page so the hero runs to the top of the viewport
-        // and the header floats over it; in normal flow everywhere else.
-        // Always visible: the bar used to auto-hide on scroll and idle, and
-        // the client asked for it to stay put (18 Sep 2026). While the
-        // soft-launch banner is on, the home bar is sticky too, so the banner
-        // sits above it; the hero pulls up under it by --header-h.
-        isHome && !SOFT_LAUNCH_ON ? "fixed inset-x-0" : "sticky",
-        // Lifts the nav off the video without a scrim behind it. Scoped so
-        // it never reaches a dropdown or the mobile sheet — see the
-        // [text-shadow:none] resets on those panels.
-        overlay &&
-          "[text-shadow:0_1px_2px_rgb(0_0_0/0.85),0_2px_10px_rgb(0_0_0/0.6)]",
-      )}
-    >
+    <header className="sticky top-0 z-50 bg-white">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-orange-600 focus:px-5 focus:py-3 focus:font-semibold focus:text-white"
       >
         Skip to main content
       </a>
-      <p id="nav-menu-hint" className="sr-only">
-        Press Down Arrow or Space to open this section&apos;s menu. Enter goes
-        to the section page.
-      </p>
 
-      {/* The bar. It owns the background so the mega menu can slide out
-          from behind it. Tight vertical padding: the lockup's own artwork
-          carries the breathing room, and the client asked for a bar 40px
-          shorter than the 111px it had (18 Sep 2026). */}
-      <div
-        className={cn(
-          "relative z-10 transition-colors duration-brand",
-          overlay
-            ? // Fully transparent: the landing view belongs to the video. The
-              // header turns solid white on scroll, which is where the reliable
-              // contrast comes from.
-              "border-b border-transparent bg-transparent"
-            : // Solid white with a hairline rule (client request, 18 Sep
-              // 2026, after trying the bar as glass).
-              "border-b border-neutral-200 bg-white",
-        )}
-      >
-        <div className="container-page flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-1.5">
-          <Logo
-            priority
-            variant={overlay ? "reversed" : "primary"}
-            className="md:!py-0"
-            tagline="Professional Healthspan Management"
-          />
-
-          {/* Everything but the logo sits on the right as one group (client
-            request, 18 Sep 2026): the tabs, then the text-size control, then
-            the menu button on narrow screens. */}
-          <div className="flex min-w-0 items-center gap-4">
-            <nav
-              ref={navRef}
-              aria-label="Primary"
-              className="hidden min-w-0 xl:flex xl:flex-wrap xl:items-center xl:gap-1"
-            >
-              {nav.map((item) =>
-                item.children ? (
-                  <div
-                    key={item.label}
-                    className="relative"
-                    onMouseEnter={() => setOpenMenu(item.label)}
-                  >
+      {/* ------------------------------------------------ desktop, from xl */}
+      <div className="hidden bg-navy-50 xl:block">
+        <div className="container-page flex h-12 items-center justify-between text-[18px]">
+          <a
+            href={SITE.phoneHref}
+            className="flex min-h-12 items-center gap-2 rounded-md font-semibold text-orange-700 hover:text-orange-800 hover:underline"
+          >
+            <Phone aria-hidden className="size-5" />
+            {CALL_LABEL}
+          </a>
+          <nav aria-label="Secondary" className="flex items-center">
+            <ul className="flex items-center">
+              {utility.map((item) => {
+                const cur = currentOf(pathname, item.href);
+                return (
+                  <li key={item.href}>
                     <Link
                       href={item.href}
-                      ref={(el) => {
-                        triggerRefs.current[item.label] = el;
-                      }}
-                      aria-expanded={openMenu === item.label}
-                      data-menu-trigger=""
-                      aria-describedby="nav-menu-hint"
-                      onKeyDown={(e) => onTriggerKeyDown(e, item.label)}
-                      aria-current={
-                        isSectionActive(item)
-                          ? pathname === pathOf(item.href)
-                            ? "page"
-                            : "true"
-                          : undefined
-                      }
-                      className={navLinkClass(isSectionActive(item), overlay)}
+                      aria-current={cur}
+                      className={deskLinkClass(Boolean(cur), "navy")}
                     >
                       {item.label}
-                      <ChevronDown aria-hidden className="size-4" />
                     </Link>
-                  </div>
-                ) : (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={navLinkClass(isActive(item.href), overlay)}
-                  >
-                    {item.label}
-                  </Link>
-                ),
-              )}
-            </nav>
+                  </li>
+                );
+              })}
+              <li aria-hidden className="mx-2 h-6 w-px bg-navy-200" />
+              <li>
+                <Link
+                  href={SIGN_IN_HREF}
+                  aria-current={currentOf(pathname, SIGN_IN_HREF)}
+                  className={cn(
+                    deskLinkClass(
+                      Boolean(currentOf(pathname, SIGN_IN_HREF)),
+                      "navy",
+                    ),
+                    "gap-2 font-semibold",
+                  )}
+                >
+                  <CircleUserRound aria-hidden className="size-5" />
+                  Sign in
+                </Link>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
 
-            <div className="flex min-w-0 items-center gap-3">
-              {/* The text-size control was removed from the bar on 19 Sep 2026
-              at the client's request. The type scale is relative, so the
-              reader's own browser or system text size still applies, and
-              /accessibility says so rather than promising a control. The
-              component is kept in components/site/font-size-control.tsx,
-              unmounted, in case it is wanted back. */}
-              {/* The door for existing members (back by client request, 18 Sep
-              2026). Drawn like the text-size control beside it — same height,
-              same hairline — so the right of the bar is one set of quiet
-              controls. 46px, not 44: the control is 44px buttons inside a 1px
-              border, and the two must sit flush. Free tier (26 Sep 2026):
-              "Sign in", or "Your account" and "Sign out" when signed in
-              ("Your account" alone from xl, design 12.5), or nothing while
-              the free tier is off. */}
-              {/* Search (Jeffrey, 28 Oct 2026): the orange icon, left of Sign in. */}
-              <HeaderSearchLink overlay={overlay} />
-              <button
-                ref={mobileTriggerRef}
-                type="button"
-                onClick={() => setMobileOpen((v) => !v)}
-                aria-expanded={mobileOpen}
-                aria-controls="mobile-nav"
-                className={cn(
-                  "flex size-11 items-center justify-center rounded-md border xl:hidden",
-                  overlay
-                    ? "border-white/50 text-white"
-                    : "border-neutral-600 text-navy-900",
-                )}
-              >
-                {mobileOpen ? (
-                  <X aria-hidden className="size-5" />
-                ) : (
-                  <Menu aria-hidden className="size-5" />
-                )}
-                <span className="sr-only">
-                  {mobileOpen ? "Close menu" : "Open menu"}
-                </span>
-              </button>
-            </div>
+      <div className="hidden h-[88px] border-b border-neutral-200 bg-white xl:block">
+        <div className="container-page flex h-full items-center justify-between gap-4">
+          <Logo
+            priority
+            tagline={SITE.tagline}
+            width={240}
+            mobileWidth={190}
+            desktopFrom="xl"
+          />
+          <div className="flex h-full items-center gap-1">
+            <nav aria-label="Primary" className="h-full">
+              <ul className="flex h-full items-center">
+                {main.map((item) => {
+                  const cur = currentOf(pathname, item.href);
+                  if (!item.children) {
+                    return (
+                      <li key={item.href} className="flex h-full items-center">
+                        <Link
+                          href={item.href}
+                          aria-current={cur}
+                          className={cn(
+                            deskLinkClass(Boolean(cur), "white"),
+                            "text-base",
+                          )}
+                        >
+                          {item.label}
+                        </Link>
+                      </li>
+                    );
+                  }
+                  return (
+                    <li
+                      key={item.href}
+                      ref={careWrapRef}
+                      onKeyDown={onCareKeyDown}
+                      className="relative flex h-full items-center"
+                    >
+                      <button
+                        ref={careTriggerRef}
+                        type="button"
+                        aria-expanded={careOpen}
+                        aria-controls="care-programmes-menu"
+                        aria-current={cur}
+                        onClick={() => setCareOpen((v) => !v)}
+                        className={cn(
+                          deskLinkClass(Boolean(cur), "white"),
+                          "text-base",
+                        )}
+                      >
+                        {item.label}
+                        <ChevronDown
+                          aria-hidden
+                          className={cn(
+                            "size-4 transition-transform motion-reduce:transition-none",
+                            careOpen && "rotate-180",
+                          )}
+                        />
+                      </button>
+                      {careOpen && (
+                        <MegaMenu
+                          id="care-programmes-menu"
+                          item={item}
+                          pathname={pathname}
+                          panelRef={carePanelRef}
+                        />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </nav>
+            <Link href={CTA_HREF} className={cn(ctaClass, "ml-2")}>
+              {CTA_LABEL}
+              <ArrowRight aria-hidden className="size-5" />
+            </Link>
           </div>
         </div>
       </div>
 
-      {/* Mega menu: the width of the bar's content, sliding down from behind
-          it so the two edges meet. A quarter is a photograph for the section,
-          three quarters the list in two columns. Its own chunk, fetched when
-          the browser is idle or the pointer first nears a trigger; nothing
-          here is needed for the first screen. */}
-      {openItem && openItem.children && (
-        <MegaMenu
-          openLabel={openItem.label}
-          prevLabel={prevItem}
-          overlay={overlay}
-          panelRef={panelRef}
-          contentRef={contentRef}
-          onKeyDown={onPanelKeyDown}
-        />
-      )}
+      {/* ------------------------------------------------ below xl */}
+      <div className="xl:hidden" inert={mobileOpen}>
+        <div className="border-b border-neutral-200">
+          <div className="mx-auto flex h-[72px] w-full max-w-[1280px] items-center justify-between gap-1 px-4 sm:px-8">
+            <Logo
+              priority
+              tagline={SITE.tagline}
+              width={240}
+              mobileWidth={190}
+              desktopFrom="xl"
+            />
+            <div className="flex items-center gap-1">
+              <a
+                href={SITE.phoneHref}
+                aria-label={CALL_LABEL}
+                className="flex min-h-12 min-w-12 items-center justify-center gap-1 rounded-md px-1.5 text-sm font-bold text-orange-700 max-[379px]:hidden"
+              >
+                <Phone aria-hidden className="size-5" />
+                Call
+              </a>
+              <button
+                ref={menuTriggerRef}
+                type="button"
+                onClick={() => setMobileOpen(true)}
+                aria-expanded={mobileOpen}
+                aria-controls="mobile-nav"
+                className="flex min-h-12 min-w-12 items-center justify-center gap-1 rounded-md border border-navy-900 px-1.5 text-sm font-bold text-navy-900"
+              >
+                <Menu aria-hidden className="size-5" />
+                Menu
+              </button>
+            </div>
+          </div>
+        </div>
+        <div className="bg-navy-50">
+          <div className="mx-auto flex h-12 w-full max-w-[1280px] items-center justify-end px-4 sm:px-8">
+            <a
+              href={SITE.phoneHref}
+              aria-label={CALL_LABEL}
+              className="mr-auto flex min-h-12 min-w-12 items-center gap-1 rounded-md px-1.5 text-base font-bold text-orange-700 min-[380px]:hidden"
+            >
+              <Phone aria-hidden className="size-5" />
+              Call
+            </a>
+            <Link
+              href={SIGN_IN_HREF}
+              aria-current={currentOf(pathname, SIGN_IN_HREF)}
+              className="flex min-h-12 items-center gap-2 rounded-md px-1.5 text-base font-bold text-orange-700"
+            >
+              <CircleUserRound aria-hidden className="size-5" />
+              Sign in
+            </Link>
+          </div>
+        </div>
+        <div className="mx-auto w-full max-w-[1280px] border-b border-neutral-200 px-4 py-3 sm:px-8">
+          <Link href={CTA_HREF} className={cn(ctaClass, "w-full")}>
+            {CTA_LABEL}
+            <ArrowRight aria-hidden className="size-5" />
+          </Link>
+        </div>
+      </div>
 
+      {/* The full-screen menu, in from the right. */}
       {mobileOpen && (
         <div
           id="mobile-nav"
-          ref={mobileNavRef}
-          className="max-h-[calc(100dvh-4.5rem)] overflow-y-auto border-t border-neutral-200 bg-white [text-shadow:none] xl:hidden"
+          ref={sheetRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Menu"
+          className={cn(
+            "fixed inset-0 z-[60] flex flex-col overflow-y-auto bg-white transition-transform duration-300 ease-out motion-reduce:transition-none xl:hidden",
+            slidIn ? "translate-x-0" : "translate-x-full",
+          )}
         >
-          <nav aria-label="Primary mobile" className="container-page py-6">
-            {/* Sign in first: a returning member should not scroll past five
-                sections of reading to reach their own information. */}
-            <ul className="space-y-1">
-              {nav.map((item) => (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    aria-current={
-                      isSectionActive(item)
-                        ? pathname === pathOf(item.href)
-                          ? "page"
-                          : "true"
-                        : undefined
-                    }
-                    className={cn(
-                      "block rounded-md px-3 py-3 text-heading-5 hover:bg-orange-50",
-                      isSectionActive(item)
-                        ? "bg-orange-50 text-orange-700 shadow-[inset_3px_0_0_var(--color-orange-600)]"
-                        : "text-navy-900",
+          <div className="flex h-[72px] shrink-0 items-center justify-between gap-2 border-b border-neutral-200 px-4 sm:px-8">
+            <Logo
+              tagline={SITE.tagline}
+              width={190}
+              mobileWidth={190}
+              desktopFrom="xl"
+            />
+            <button
+              ref={closeRef}
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              className="flex min-h-12 min-w-12 items-center justify-center gap-1 rounded-md border border-navy-900 px-2 text-sm font-bold text-navy-900"
+            >
+              <X aria-hidden className="size-5" />
+              Close
+            </button>
+          </div>
+
+          <div className="space-y-3 px-5 pt-5 pb-3">
+            <Link href={CTA_HREF} className={cn(ctaClass, "w-full")}>
+              {CTA_LABEL}
+              <ArrowRight aria-hidden className="size-5" />
+            </Link>
+            <a
+              href={SITE.phoneHref}
+              className="flex min-h-14 items-center justify-center gap-2 rounded-md text-xl font-bold text-orange-700"
+            >
+              <Phone aria-hidden className="size-6" />
+              {CALL_LABEL}
+            </a>
+          </div>
+
+          <nav aria-label="Primary mobile" className="flex-1">
+            <ul>
+              {nav.map((item) => {
+                const cur = currentOf(pathname, item.href);
+                if (!item.children) {
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        aria-current={cur}
+                        className={mobileLinkClass(Boolean(cur))}
+                      >
+                        {item.label}
+                        {cur === "page" && hereMark}
+                      </Link>
+                    </li>
+                  );
+                }
+                const subs = [
+                  ...item.children,
+                  ...(item.childrenFooter ? [item.childrenFooter] : []),
+                ];
+                return (
+                  <li key={item.href}>
+                    <button
+                      type="button"
+                      aria-expanded={mobileCare}
+                      aria-controls="mobile-care-programmes"
+                      aria-current={cur}
+                      onClick={() => setMobileCare((v) => !v)}
+                      className={mobileLinkClass(Boolean(cur))}
+                    >
+                      {item.label}
+                      <ChevronDown
+                        aria-hidden
+                        className={cn(
+                          "ml-auto size-5 transition-transform motion-reduce:transition-none",
+                          mobileCare && "rotate-180",
+                        )}
+                      />
+                    </button>
+                    {mobileCare && (
+                      <ul id="mobile-care-programmes" className="bg-navy-50">
+                        {subs.map((sub) => {
+                          const here = pathname === pathOf(sub.href);
+                          return (
+                            <li key={sub.href}>
+                              <Link
+                                href={sub.href}
+                                aria-current={here ? "page" : undefined}
+                                className={cn(
+                                  mobileLinkClass(here),
+                                  "pl-9 text-xl",
+                                  here && "pl-8",
+                                )}
+                              >
+                                {sub.label}
+                                {here && hereMark}
+                              </Link>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     )}
-                  >
-                    {item.label}
-                  </Link>
-                  {item.children && (
-                    <ul className="ml-3 border-l border-neutral-200 pl-3">
-                      {item.children.map((child) => (
-                        <li key={child.href}>
-                          <Link
-                            href={child.href}
-                            aria-current={
-                              child.href === activeHref(item.hrefs, pathname)
-                                ? "page"
-                                : undefined
-                            }
-                            className={cn(
-                              "block rounded-md px-3 py-2.5 hover:bg-orange-50 hover:text-orange-700",
-                              child.href === activeHref(item.hrefs, pathname)
-                                ? "bg-orange-50 font-semibold text-orange-700 shadow-[inset_3px_0_0_var(--color-orange-600)]"
-                                : "text-neutral-700",
-                            )}
-                          >
-                            {child.label}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           </nav>
+
+          <div className="shrink-0 border-t border-neutral-200 py-2">
+            <Link
+              href={SIGN_IN_HREF}
+              aria-current={currentOf(pathname, SIGN_IN_HREF)}
+              className={mobileLinkClass(false)}
+            >
+              <CircleUserRound aria-hidden className="size-6" />
+              Sign in
+            </Link>
+          </div>
         </div>
       )}
     </header>
