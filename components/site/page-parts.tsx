@@ -32,20 +32,29 @@ const CARD_SHADOW =
   "shadow-[0_1px_2px_rgb(0_20_77/0.06),0_4px_16px_rgb(0_20_77/0.05)]";
 
 /* ------------------------------------------------------------ Breadcrumbs */
-export function Breadcrumbs({ current }: { current: string }) {
+export function Breadcrumbs({
+  current,
+  trail = [],
+}: {
+  current: string;
+  trail?: { href: string; label: string }[];
+}) {
+  const crumbs = [{ href: "/", label: "Home" }, ...trail];
   return (
     <nav aria-label="Breadcrumb" className="bg-white">
       <Container>
         <ol className="m-0 flex list-none flex-wrap items-center gap-1 p-0 py-2 text-base text-neutral-700">
-          <li className="flex items-center gap-1">
-            <Link
-              href="/"
-              className="inline-flex min-h-11 items-center text-orange-700 underline underline-offset-[3px]"
-            >
-              Home
-            </Link>
-            <ChevronRight aria-hidden className="size-4" />
-          </li>
+          {crumbs.map((c) => (
+            <li key={c.href} className="flex items-center gap-1">
+              <Link
+                href={c.href}
+                className="inline-flex min-h-11 items-center text-orange-700 underline underline-offset-[3px]"
+              >
+                {c.label}
+              </Link>
+              <ChevronRight aria-hidden className="size-4" />
+            </li>
+          ))}
           <li aria-current="page" className="inline-flex min-h-11 items-center">
             {current}
           </li>

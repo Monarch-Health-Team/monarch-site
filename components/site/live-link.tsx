@@ -6,7 +6,10 @@ import type { ComponentProps } from "react";
  * route is pointed at "#" so tabs, buttons and footer links stay visible
  * but never lead to a 404. Remove this wrapper as pages are rebuilt.
  */
-export const LIVE_PATHS = new Set<string>(["/", "/our-approach", "/care-programmes"]);
+export const LIVE_PATHS = new Set<string>(["/", "/our-approach", "/care-programmes",
+  "/care-programmes/foundation",
+  "/care-programmes/preserve",
+]);
 
 export function liveHref(href: string): string {
   if (!href.startsWith("/") || href.startsWith("//")) return href; // #, http, mailto, tel
@@ -16,12 +19,12 @@ export function liveHref(href: string): string {
 
 type Props = ComponentProps<typeof NextLink>;
 
+/**
+ * Pages that are not built yet keep a real, focusable link but point at "#",
+ * so nothing leads to a 404.
+ */
 export default function Link({ href, ...rest }: Props) {
   const resolved =
-    typeof href === "string"
-      ? liveHref(href)
-      : href.pathname && !LIVE_PATHS.has(href.pathname)
-        ? "#"
-        : href;
+    typeof href === "string" ? liveHref(href) : href.pathname && !LIVE_PATHS.has(href.pathname) ? "#" : href;
   return <NextLink href={resolved} {...rest} />;
 }
