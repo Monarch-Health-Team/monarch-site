@@ -6,7 +6,10 @@ import type { ComponentProps } from "react";
  * route is pointed at "#" so tabs, buttons and footer links stay visible
  * but never lead to a 404. Remove this wrapper as pages are rebuilt.
  */
-export const LIVE_PATHS = new Set<string>(["/", "/our-approach", "/care-programmes"]);
+export const LIVE_PATHS = new Set<string>(["/", "/our-approach", "/care-programmes",
+  "/care-programmes/foundation",
+  "/care-programmes/preserve",
+]);
 
 export function liveHref(href: string): string {
   if (!href.startsWith("/") || href.startsWith("//")) return href; // #, http, mailto, tel
