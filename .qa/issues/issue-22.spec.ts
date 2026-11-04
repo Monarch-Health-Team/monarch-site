@@ -16,7 +16,7 @@ for (const vp of [
   });
 }
 
-test("below xl only the top bar stays pinned", async ({ page }) => {
+test("below 1280 the one bar stays pinned", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const cta = page.getByRole("banner").getByRole("link", { name: "Arrange a Conversation" });
@@ -28,11 +28,12 @@ test("below xl only the top bar stays pinned", async ({ page }) => {
   expect(box!.height).toBeGreaterThanOrEqual(44);
 });
 
-test("at 1440 both header rows stay pinned", async ({ page }) => {
+test("at 1440 the one bar stays pinned", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   await page.evaluate(() => window.scrollTo(0, 1500));
   await expect(page.getByRole("link", { name: "Sign in" }).first()).toBeInViewport();
+  await expect(page.getByRole("button", { name: "About", exact: true })).toBeInViewport();
   await expect(
     page.getByRole("banner").getByRole("link", { name: "Arrange a Conversation" }),
   ).toBeInViewport();

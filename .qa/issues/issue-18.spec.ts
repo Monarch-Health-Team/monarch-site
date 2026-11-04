@@ -10,20 +10,23 @@ test("tagline is Continuous care for life in the title, header and footer", asyn
   await expect(page.getByText(/Professional Healthspan/)).toHaveCount(0);
 });
 
-test("desktop header: two rows with the right links and one CTA", async ({ page }, testInfo) => {
+test("desktop header: one row with the right links and one CTA", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop", "desktop only");
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
   const header = page.getByRole("banner");
-  await expect(header.getByRole("link", { name: "Call (250) 818-4425" })).toBeVisible();
-  for (const name of ["Home", "Our Team", "Resources", "About Monarch", "Contact", "Sign in"]) {
+  await expect(header.getByRole("link", { name: /^Call/ })).toHaveCount(0);
+  for (const name of ["Our Approach", "For Families", "Resources", "Sign in"]) {
     await expect(header.getByRole("link", { name, exact: true })).toBeVisible();
   }
-  for (const name of ["Our Approach", "The 12 Health Categories", "For Families"]) {
-    await expect(header.getByRole("link", { name, exact: true })).toBeVisible();
+  for (const name of ["Care Programmes", "About"]) {
+    await expect(header.getByRole("button", { name, exact: true })).toBeVisible();
   }
-  await expect(header.getByRole("button", { name: "Care Programmes" })).toBeVisible();
+  for (const name of ["Our Team", "The 12 Health Categories"]) {
+    await expect(header.getByRole("link", { name, exact: true })).toHaveCount(0);
+  }
   await expect(header.getByRole("link", { name: "Arrange a Conversation" })).toHaveCount(1);
-  await expect(header.getByRole("link", { name: "Home", exact: true })).toHaveAttribute(
+  await expect(header.getByRole("link", { name: LOGO_NAME }).first()).toHaveAttribute(
     "aria-current",
     "page",
   );
@@ -55,9 +58,18 @@ test("mobile menu opens, lists the pages, and returns focus on close", async ({ 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("link", { name: "Arrange a Conversation" })).toBeVisible();
   await expect(dialog.getByRole("link", { name: "Call (250) 818-4425" })).toBeVisible();
-  for (const name of ["Home", "Our Approach", "The 12 Health Categories", "Our Team", "For Families", "Resources", "About Monarch", "Contact", "Sign in"]) {
-    await expect(dialog.getByRole("link", { name, exact: true })).toBeVisible();
-  }
+  const items = (await dialog.locator("a, button").allInnerTexts())
+    .map((t) => t.trim())
+    .filter((t) => t && t !== "Close" && !t.startsWith("Arrange") && !t.startsWith("Call"));
+  expect(items).toEqual([
+    "Our Approach",
+    "Care Programmes",
+    "For Families",
+    "Resources",
+    "About",
+    "Contact",
+    "Sign in",
+  ]);
   await dialog.getByRole("button", { name: "Care Programmes" }).click();
   await expect(dialog.getByRole("link", { name: "Compare all programmes" })).toBeVisible();
   await page.keyboard.press("Escape");

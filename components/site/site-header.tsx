@@ -37,32 +37,32 @@ function currentOf(pathname: string, href: string) {
 
 /**
  * One style for every desktop link. Current is bold navy plus a 3px orange
- * bar, so it never relies on colour alone. On the navy-50 row the quiet links
- * are orange-700 (7:1), not orange-600 (4.16:1 on that band).
+ * bar, so it never relies on colour alone.
  */
-function deskLinkClass(active: boolean, band: "navy" | "white") {
+function deskLinkClass(active: boolean) {
   return cn(
-    "relative flex min-h-12 items-center gap-1 whitespace-nowrap rounded-md px-3 transition-colors motion-reduce:transition-none",
+    "relative flex min-h-12 items-center gap-1 whitespace-nowrap rounded-md px-3 text-base transition-colors motion-reduce:transition-none",
     active
       ? "font-bold text-navy-900 after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:bg-orange-600 after:content-['']"
-      : band === "navy"
-        ? "text-orange-700 hover:text-orange-800 hover:underline"
-        : "text-navy-900 hover:text-orange-700",
+      : "text-navy-900 hover:text-orange-700",
   );
 }
 
 const ctaClass =
   "inline-flex h-14 items-center justify-center gap-2 rounded-[10px] bg-orange-600 px-6 text-base font-bold whitespace-nowrap text-white transition-colors hover:bg-orange-700 motion-reduce:transition-none";
 
+type MenuId = "care" | "about";
+const MENU_DOM_ID: Record<MenuId, string> = {
+  care: "care-programmes-menu",
+  about: "about-menu",
+};
+
 export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileCare, setMobileCare] = useState(false);
   const [slidIn, setSlidIn] = useState(false);
-  const [careOpen, setCareOpen] = useState(false);
-
-  const utility = nav.filter((i) => i.row === "utility");
-  const main = nav.filter((i) => i.row === "main");
+  const [openMenu, setOpenMenu] = useState<MenuId | null>(null);
 
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -70,6 +70,17 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
   const careWrapRef = useRef<HTMLLIElement>(null);
   const careTriggerRef = useRef<HTMLButtonElement>(null);
   const carePanelRef = useRef<HTMLUListElement>(null);
+  const aboutWrapRef = useRef<HTMLLIElement>(null);
+  const aboutTriggerRef = useRef<HTMLButtonElement>(null);
+  const aboutPanelRef = useRef<HTMLUListElement>(null);
+  const menuRefs = {
+    care: { wrap: careWrapRef, trigger: careTriggerRef, panel: carePanelRef },
+    about: {
+      wrap: aboutWrapRef,
+      trigger: aboutTriggerRef,
+      panel: aboutPanelRef,
+    },
+  };
   const focusFirstRef = useRef(false);
 
   // Close everything on navigation, by resetting during render.
@@ -77,7 +88,7 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
   if (prevPathname !== pathname) {
     setPrevPathname(pathname);
     setMobileOpen(false);
-    setCareOpen(false);
+    setOpenMenu(null);
   }
 
   /* The phone menu is a modal surface. Focus moves into it when it opens and
@@ -125,17 +136,22 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [mobileOpen]);
 
-  /* Care Programmes panel: opens on click, Enter, Space or Down Arrow (Down
-     also lands on the first row); closes on Escape (focus back on the
-     button), on a click elsewhere, and when focus leaves it. */
+  /* The two dropdowns (Care Programmes, About), one open at a time. They open
+     on click, Enter, Space or Down Arrow (a keyboard open lands on the first
+     row); close on Escape (focus back on the button), on a click elsewhere,
+     and when focus leaves. */
   useEffect(() => {
-    if (!careOpen) return;
+    if (!openMenu) return;
+    const refs = {
+      care: { wrap: careWrapRef, panel: carePanelRef },
+      about: { wrap: aboutWrapRef, panel: aboutPanelRef },
+    }[openMenu];
     if (focusFirstRef.current) {
       focusFirstRef.current = false;
-      carePanelRef.current?.querySelector<HTMLElement>("a[href]")?.focus();
+      refs.panel.current?.querySelector<HTMLElement>("a[href]")?.focus();
     }
     function outside(e: Event) {
-      if (!careWrapRef.current?.contains(e.target as Node)) setCareOpen(false);
+      if (!refs.wrap.current?.contains(e.target as Node)) setOpenMenu(null);
     }
     document.addEventListener("pointerdown", outside);
     document.addEventListener("focusin", outside);
@@ -143,25 +159,30 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
       document.removeEventListener("pointerdown", outside);
       document.removeEventListener("focusin", outside);
     };
-  }, [careOpen]);
+  }, [openMenu]);
 
-  function onCareKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Escape" && careOpen) {
+  function onMenuKeyDown(id: MenuId, e: React.KeyboardEvent) {
+    const refs = menuRefs[id];
+    const open = openMenu === id;
+    if (e.key === "Escape" && open) {
       e.preventDefault();
-      setCareOpen(false);
-      careTriggerRef.current?.focus();
-    } else if (
-      e.key === "ArrowDown" &&
-      e.target === careTriggerRef.current
-    ) {
+      setOpenMenu(null);
+      refs.trigger.current?.focus();
+    } else if (e.key === "ArrowDown" && e.target === refs.trigger.current) {
       e.preventDefault();
-      if (careOpen) {
-        carePanelRef.current?.querySelector<HTMLElement>("a[href]")?.focus();
+      if (open) {
+        refs.panel.current?.querySelector<HTMLElement>("a[href]")?.focus();
       } else {
         focusFirstRef.current = true;
-        setCareOpen(true);
+        setOpenMenu(id);
       }
     }
+  }
+
+  function onMenuClick(id: MenuId, e: React.MouseEvent) {
+    // detail 0: the click came from Enter or Space, so land on the first row.
+    if (openMenu !== id && e.detail === 0) focusFirstRef.current = true;
+    setOpenMenu((v) => (v === id ? null : id));
   }
 
   const mobileLinkClass = (current: boolean) =>
@@ -175,9 +196,26 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
       You are here
     </span>
   );
+  const signInCur = currentOf(pathname, SIGN_IN_HREF);
+
+  function sheetLink(label: string, href: string) {
+    const cur = currentOf(pathname, href);
+    return (
+      <li key={`${label}-${href}`}>
+        <Link
+          href={href}
+          aria-current={cur === "page" ? "page" : undefined}
+          className={mobileLinkClass(cur === "page")}
+        >
+          {label}
+          {cur === "page" && hereMark}
+        </Link>
+      </li>
+    );
+  }
 
   return (
-    <header className="contents xl:sticky xl:top-0 xl:z-50 xl:block xl:bg-white">
+    <header className="sticky top-0 z-50 border-b border-neutral-200 bg-white">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-orange-600 focus:px-5 focus:py-3 focus:font-semibold focus:text-white"
@@ -185,192 +223,112 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
         Skip to main content
       </a>
 
-      {/* ------------------------------------------------ desktop, from xl */}
-      <div className="hidden bg-navy-50 xl:block">
-        <div className="container-page flex h-12 items-center justify-between text-[18px]">
-          <a
-            href={SITE.phoneHref}
-            className="flex min-h-12 items-center gap-2 rounded-md font-semibold text-orange-700 hover:text-orange-800 hover:underline"
-          >
-            <Phone aria-hidden className="size-5" />
-            {CALL_LABEL}
-          </a>
-          <nav aria-label="Secondary" className="flex items-center">
-            <ul className="flex items-center">
-              {utility.map((item) => {
-                const cur = currentOf(pathname, item.href);
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      aria-current={cur}
-                      className={deskLinkClass(Boolean(cur), "navy")}
-                    >
-                      {item.label}
-                    </Link>
-                  </li>
-                );
-              })}
-              <li aria-hidden className="mx-2 h-6 w-px bg-navy-200" />
-              <li>
-                <Link
-                  href={SIGN_IN_HREF}
-                  aria-current={currentOf(pathname, SIGN_IN_HREF)}
-                  className={cn(
-                    deskLinkClass(
-                      Boolean(currentOf(pathname, SIGN_IN_HREF)),
-                      "navy",
-                    ),
-                    "gap-2 font-semibold",
-                  )}
-                >
-                  <CircleUserRound aria-hidden className="size-5" />
-                  Sign in
-                </Link>
-              </li>
-            </ul>
-          </nav>
-        </div>
-      </div>
-
-      <div className="hidden h-[88px] border-b border-neutral-200 bg-white xl:block">
-        <div className="container-page flex h-full items-center justify-between gap-4">
+      {/* One 80px bar at every width. Below hdr (80rem) it holds only the
+          logo and Menu; everything else is in the phone sheet. */}
+      <div inert={mobileOpen}>
+        <div className="mx-auto flex h-20 w-full max-w-[1440px] items-center gap-4 px-6">
           <Logo
             priority
             tagline={SITE.tagline}
-            width={240}
+            width={220}
             mobileWidth={190}
-            desktopFrom="xl"
+            desktopFrom="hdr"
+            current={pathname === "/"}
           />
-          <div className="flex h-full items-center gap-1">
-            <nav aria-label="Primary" className="h-full">
-              <ul className="flex h-full items-center">
-                {main.map((item) => {
-                  const cur = currentOf(pathname, item.href);
-                  if (!item.children) {
-                    return (
-                      <li key={item.href} className="flex h-full items-center">
-                        <Link
-                          href={item.href}
-                          aria-current={cur}
-                          className={cn(
-                            deskLinkClass(Boolean(cur), "white"),
-                            "text-base",
-                          )}
-                        >
-                          {item.label}
-                        </Link>
-                      </li>
-                    );
-                  }
+
+          <nav aria-label="Primary" className="ml-auto max-hdr:hidden">
+            <ul className="flex items-center">
+              {nav.map((item) => {
+                const cur = currentOf(pathname, item.href);
+                if (!item.children) {
                   return (
-                    <li
-                      key={item.href}
-                      ref={careWrapRef}
-                      onKeyDown={onCareKeyDown}
-                      className="relative flex h-full items-center"
-                    >
-                      <button
-                        ref={careTriggerRef}
-                        type="button"
-                        aria-expanded={careOpen}
-                        aria-controls="care-programmes-menu"
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
                         aria-current={cur}
-                        onClick={() => setCareOpen((v) => !v)}
-                        className={cn(
-                          deskLinkClass(Boolean(cur), "white"),
-                          "text-base",
-                        )}
+                        className={deskLinkClass(Boolean(cur))}
                       >
                         {item.label}
-                        <ChevronDown
-                          aria-hidden
-                          className={cn(
-                            "size-4 transition-transform motion-reduce:transition-none",
-                            careOpen && "rotate-180",
-                          )}
-                        />
-                      </button>
-                      {careOpen && (
-                        <MegaMenu
-                          id="care-programmes-menu"
-                          item={item}
-                          pathname={pathname}
-                          panelRef={carePanelRef}
-                        />
-                      )}
+                      </Link>
                     </li>
                   );
-                })}
-              </ul>
-            </nav>
-            <Link href={CTA_HREF} className={cn(ctaClass, "ml-2")}>
-              {CTA_LABEL}
-              <ArrowRight aria-hidden className="size-5" />
-            </Link>
-          </div>
-        </div>
-      </div>
+                }
+                const id: MenuId = item.sheetFlat ? "about" : "care";
+                const refs = menuRefs[id];
+                const open = openMenu === id;
+                // About is "true" on its own page and on Contact.
+                const here = item.sheetFlat
+                  ? item.children.some((c) => isCurrent(pathname, c.href))
+                    ? ("true" as const)
+                    : undefined
+                  : cur;
+                return (
+                  <li
+                    key={item.href}
+                    ref={refs.wrap}
+                    onKeyDown={(e) => onMenuKeyDown(id, e)}
+                    className="relative flex items-center"
+                  >
+                    <button
+                      ref={refs.trigger}
+                      type="button"
+                      aria-expanded={open}
+                      aria-controls={MENU_DOM_ID[id]}
+                      aria-current={here}
+                      onClick={(e) => onMenuClick(id, e)}
+                      className={deskLinkClass(Boolean(here))}
+                    >
+                      {item.label}
+                      <ChevronDown
+                        aria-hidden
+                        className={cn(
+                          "size-4 transition-transform motion-reduce:transition-none",
+                          open && "rotate-180",
+                        )}
+                      />
+                    </button>
+                    {open && (
+                      <MegaMenu
+                        id={MENU_DOM_ID[id]}
+                        item={item}
+                        pathname={pathname}
+                        panelRef={refs.panel}
+                      />
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </nav>
 
-      {/* ------------------------------------------------ below xl */}
-      <div className="contents xl:hidden" inert={mobileOpen}>
-        <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white">
-          <div className="mx-auto flex h-[72px] w-full max-w-[1280px] items-center justify-between gap-1 px-4 sm:px-8">
-            <Logo
-              priority
-              tagline={SITE.tagline}
-              width={240}
-              mobileWidth={190}
-              desktopFrom="xl"
-            />
-            <div className="flex items-center gap-1">
-              <a
-                href={SITE.phoneHref}
-                aria-label={CALL_LABEL}
-                className="flex min-h-12 min-w-12 items-center justify-center gap-1 rounded-md px-1.5 text-sm font-bold text-orange-700 max-[379px]:hidden"
-              >
-                <Phone aria-hidden className="size-5" />
-                Call
-              </a>
-              <button
-                ref={menuTriggerRef}
-                type="button"
-                onClick={() => setMobileOpen(true)}
-                aria-expanded={mobileOpen}
-                aria-controls="mobile-nav"
-                className="flex min-h-12 min-w-12 items-center justify-center gap-1 rounded-md border border-navy-900 px-1.5 text-sm font-bold text-navy-900"
-              >
-                <Menu aria-hidden className="size-5" />
-                Menu
-              </button>
-            </div>
-          </div>
-        </div>
-        <div className="bg-navy-50">
-          <div className="mx-auto flex h-12 w-full max-w-[1280px] items-center justify-end px-4 sm:px-8">
-            <a
-              href={SITE.phoneHref}
-              aria-label={CALL_LABEL}
-              className="mr-auto flex min-h-12 min-w-12 items-center gap-1 rounded-md px-1.5 text-base font-bold text-orange-700 min-[380px]:hidden"
-            >
-              <Phone aria-hidden className="size-5" />
-              Call
-            </a>
-            <Link
-              href={SIGN_IN_HREF}
-              aria-current={currentOf(pathname, SIGN_IN_HREF)}
-              className="flex min-h-12 items-center gap-2 rounded-md px-1.5 text-base font-bold text-orange-700"
-            >
-              <CircleUserRound aria-hidden className="size-5" />
-              Sign in
-            </Link>
-          </div>
-        </div>
-        <div className="mx-auto w-full max-w-[1280px] border-b border-neutral-200 bg-white px-4 py-3 sm:px-8">
-          <Link href={CTA_HREF} className={cn(ctaClass, "w-full")}>
+          <Link
+            href={SIGN_IN_HREF}
+            aria-current={signInCur}
+            className={cn(
+              "relative flex min-h-12 items-center gap-2 whitespace-nowrap rounded-md px-3 text-base font-bold text-navy-900 transition-colors hover:text-orange-700 motion-reduce:transition-none max-hdr:hidden",
+              signInCur &&
+                "after:absolute after:inset-x-3 after:bottom-0 after:h-[3px] after:bg-orange-600 after:content-['']",
+            )}
+          >
+            <CircleUserRound aria-hidden className="size-5" />
+            Sign in
+          </Link>
+          <Link href={CTA_HREF} className={cn(ctaClass, "max-hdr:hidden")}>
             {CTA_LABEL}
             <ArrowRight aria-hidden className="size-5" />
           </Link>
+
+          <button
+            ref={menuTriggerRef}
+            type="button"
+            onClick={() => setMobileOpen(true)}
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-nav"
+            className="ml-auto flex min-h-12 min-w-12 items-center justify-center gap-1 rounded-md border border-navy-900 px-1.5 text-sm font-bold text-navy-900 hdr:hidden"
+          >
+            <Menu aria-hidden className="size-5" />
+            Menu
+          </button>
         </div>
       </div>
 
@@ -383,16 +341,17 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
           aria-modal="true"
           aria-label="Menu"
           className={cn(
-            "fixed inset-0 z-[60] flex flex-col overflow-y-auto bg-white transition-transform duration-300 ease-out motion-reduce:transition-none xl:hidden",
+            "fixed inset-0 z-[60] flex flex-col overflow-y-auto bg-white transition-transform duration-300 ease-out motion-reduce:transition-none hdr:hidden",
             slidIn ? "translate-x-0" : "translate-x-full",
           )}
         >
-          <div className="flex h-[72px] shrink-0 items-center justify-between gap-2 border-b border-neutral-200 px-4 sm:px-8">
+          <div className="flex h-20 shrink-0 items-center justify-between gap-2 border-b border-neutral-200 px-6">
             <Logo
               tagline={SITE.tagline}
               width={190}
               mobileWidth={190}
-              desktopFrom="xl"
+              desktopFrom="hdr"
+              current={pathname === "/"}
             />
             <button
               ref={closeRef}
@@ -412,7 +371,7 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
             </Link>
             <a
               href={SITE.phoneHref}
-              className="flex min-h-14 items-center justify-center gap-2 rounded-md text-xl font-bold text-orange-700"
+              className="flex min-h-12 items-center justify-center gap-2 rounded-md text-xl font-bold text-orange-700"
             >
               <Phone aria-hidden className="size-6" />
               {CALL_LABEL}
@@ -422,6 +381,14 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
           <nav aria-label="Primary mobile" className="flex-1">
             <ul>
               {nav.map((item) => {
+                if (item.sheetFlat) {
+                  return [
+                    sheetLink(item.label, item.href),
+                    ...(item.children ?? [])
+                      .filter((c) => pathOf(c.href) !== pathOf(item.href))
+                      .map((c) => sheetLink(c.label, c.href)),
+                  ];
+                }
                 const cur = currentOf(pathname, item.href);
                 if (!item.children) {
                   return (
@@ -492,8 +459,8 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
           <div className="shrink-0 border-t border-neutral-200 py-2">
             <Link
               href={SIGN_IN_HREF}
-              aria-current={currentOf(pathname, SIGN_IN_HREF)}
-              className={mobileLinkClass(false)}
+              aria-current={signInCur}
+              className={mobileLinkClass(Boolean(signInCur))}
             >
               <CircleUserRound aria-hidden className="size-6" />
               Sign in
