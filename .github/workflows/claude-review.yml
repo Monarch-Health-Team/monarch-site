@@ -121,7 +121,8 @@ jobs:
             unclear. Don't run anything.
             Ask for a fix only for a real defect: an acceptance criterion not met, a broken or clearly wrong
             layout in a screenshot, an accessibility or security problem, or a bug visible in the diff. No style
-            nits, no refactors, nothing outside the issue.
+            nits, no refactors, nothing outside the issue. Never ask for a change to product behaviour, copy,
+            links or accessibility labels, or to delete or weaken a test, just to satisfy a QA check.
             Then write .qa-review/verdict.json and nothing else, exactly:
             {"verdict": "pass" | "fix", "review": "<markdown, max 12 lines>", "fix": "<only when verdict is fix: max 8 short imperative lines, each one concrete change>"}
           claude_args: >-

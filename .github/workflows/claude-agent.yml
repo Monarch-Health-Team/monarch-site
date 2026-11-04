@@ -173,8 +173,8 @@ jobs:
               fi
               if [ -n "$QA_SUMMARY" ]; then
                 echo
-                echo "Automated QA failed (fix round $ROUND of 2). Fix ONLY what is needed to make QA pass;"
-                echo "keep the intended change. Tests in .qa/issues/ are locked in this round (edits are reverted):"
+                echo "Automated QA failed (fix round $ROUND of 2). Fix the real cause in the app, within this PR's"
+                echo "scope; keep the intended change. Tests in .qa/issues/ are locked in this round (edits are reverted):"
                 echo "if an issue test fails, fix the app, not the test. QA output:"
                 printf '%s\n' "$QA_SUMMARY"
               fi
@@ -183,6 +183,14 @@ jobs:
             echo "Rules: follow CLAUDE.md. Edit files only; you cannot run git or gh, and a separate step"
             echo "commits your work. Files under .github/ are reset after you finish. Before finishing, run"
             echo "$(printf '%s' "$CHECKS" | sed 's/|/, /g') and fix what you broke."
+            echo
+            echo "Scope and QA guardrails:"
+            echo "- Stay within the issue's scope (and the owner's requested changes); change nothing else."
+            echo "- Never change product behaviour, copy, links or accessibility labels (aria-*, roles, accessible"
+            echo "  names), and never delete, skip or weaken an existing test, just to get a QA check to pass."
+            echo "- If a QA check conflicts with the issue spec, or the failure looks pre-existing (it would also fail"
+            echo "  on main, or is in code this issue doesn't touch), stop: don't work around it. Explain it in your"
+            echo "  summary on a line starting 'QA conflict:' so the owner can fix main or the QA settings."
             echo "Finish with a 3-6 line plain-English summary of what you changed."
           } > "$RUNNER_TEMP/prompt.txt"
           { echo "prompt<<PROMPT_EOF_7c1"; cat "$RUNNER_TEMP/prompt.txt"; echo "PROMPT_EOF_7c1"; } >> "$GITHUB_OUTPUT"

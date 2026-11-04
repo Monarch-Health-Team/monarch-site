@@ -309,10 +309,12 @@ result() {
   [ -f qa-artifacts/e2e/report.md ] && { echo; sed -n '/^## Warnings/,$p' qa-artifacts/e2e/report.md | head -n 25; } >> qa-artifacts/qa-summary.md
   # Machine-readable lines (kept for anything that parses the log; nothing is sent anywhere).
   gh_word() { case "$1" in PASS) echo success;; FAIL) echo failure;; *) echo skipped;; esac; }
-  local k
+  local k failed=""
   for k in app:APP install:INSTALL lint:LINT typecheck:TYPECHECK test:TEST build:BUILD app_e2e:APP_E2E e2e:E2E e2e_issue:ISSUE_E2E lighthouse:LHCI; do
     echo "QA_STATUS ${k#*:}=$(gh_word "$(get "${k%%:*}")")"
+    [ "$(gh_word "$(get "${k%%:*}")")" = failure ] && failed+="${failed:+,}${k#*:}"
   done
+  echo "failed=$failed" >> "$GITHUB_OUTPUT" # claude-build.yml compares these with main's QA_STATUS lines
   if [ -n "$s" ]; then echo "QA_FAILURES_BEGIN"; printf '%s\n' "$s"; echo "QA_FAILURES_END"; fi
   echo "passed=$passed"
 }

@@ -16,6 +16,9 @@ name: Claude build
 # PR title: "[WIP] " is put in front while this run's build/QA/fix loop works (wip-on for an
 # existing PR, wip-new as soon as a build opens its PR) and removed in report (if: always()).
 # These steps never fail the run.
+# Guardrails (.github/scripts/qa-guard.sh): no build/fix starts while the latest finished QA run on main
+# failed (fix main first; repo variable CLAUDE_MAIN_QA_GATE=off skips this), and the loop stops early
+# instead of using up its fix rounds when the failures also happen on main, or come back unchanged.
 on:
   issues:
     types: [labeled]
@@ -36,6 +39,7 @@ permissions:
   pull-requests: write
   issues: write
   statuses: write
+  actions: read # qa-guard.sh reads main's QA runs
 
 concurrency:
   group: claude-build-${{ github.event.issue.number || inputs.issue_number }}
@@ -112,6 +116,22 @@ jobs:
           else
             gh api -X POST "repos/$REPO/issues/$NUM/reactions" -f content=eyes >/dev/null
           fi
+
+      # Trusted copy of the guard script from main (never from the branch under test).
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch || 'main' }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+
+      - name: QA on main must be green
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          NUM: ${{ github.event.issue.number || inputs.issue_number }}
+          NOTIFY: ${{ vars.CLAUDE_NOTIFY || 'jeffreyjoju' }}
+          GATE: ${{ vars.CLAUDE_MAIN_QA_GATE }}
+        run: bash .github/scripts/qa-guard.sh gate
 
   # [WIP] on an already-open PR (/claude fix, review-dispatched fix), in parallel with the agent.
   wip-on:
@@ -195,9 +215,41 @@ jobs:
     secrets:
       ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
 
-  fix1:
-    needs: [gate, start, qa1]
+  # Before fix round 1: stop early when every failing QA check also fails on main.
+  guard1:
+    needs: [qa1]
     if: needs.qa1.result == 'success' && needs.qa1.outputs.passed != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      stop: ${{ steps.g.outputs.stop }}
+      kind: ${{ steps.g.outputs.kind }}
+      detail: ${{ steps.g.outputs.detail }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch || 'main' }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - id: g
+        continue-on-error: true # if the check itself breaks, the fix round runs as before
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CUR_FAILED: ${{ needs.qa1.outputs.failed }}
+          CUR_SUMMARY: ${{ needs.qa1.outputs.summary }}
+          PREV_FAILED: ""
+          PREV_SUMMARY: ""
+        run: bash .github/scripts/qa-guard.sh round
+
+  fix1:
+    needs: [gate, start, qa1, guard1]
+    if: >-
+      !cancelled() && needs.qa1.result == 'success' && needs.qa1.outputs.passed != 'true' &&
+      needs.guard1.outputs.stop != 'true'
     uses: ./.github/workflows/claude-agent.yml
     with:
       mode: fix
@@ -219,9 +271,41 @@ jobs:
     secrets:
       ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
 
-  fix2:
-    needs: [gate, start, qa2]
+  # Before fix round 2: stop early as in guard1, or when the same failures came back unchanged after fix round 1.
+  guard2:
+    needs: [qa1, qa2]
     if: needs.qa2.result == 'success' && needs.qa2.outputs.passed != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      stop: ${{ steps.g.outputs.stop }}
+      kind: ${{ steps.g.outputs.kind }}
+      detail: ${{ steps.g.outputs.detail }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch || 'main' }}
+          sparse-checkout: .github/scripts
+          persist-credentials: false
+      - id: g
+        continue-on-error: true # if the check itself breaks, the fix round runs as before
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          CUR_FAILED: ${{ needs.qa2.outputs.failed }}
+          CUR_SUMMARY: ${{ needs.qa2.outputs.summary }}
+          PREV_FAILED: ${{ needs.qa1.outputs.failed }}
+          PREV_SUMMARY: ${{ needs.qa1.outputs.summary }}
+        run: bash .github/scripts/qa-guard.sh round
+
+  fix2:
+    needs: [gate, start, qa2, guard2]
+    if: >-
+      !cancelled() && needs.qa2.result == 'success' && needs.qa2.outputs.passed != 'true' &&
+      needs.guard2.outputs.stop != 'true'
     uses: ./.github/workflows/claude-agent.yml
     with:
       mode: fix
@@ -244,7 +328,7 @@ jobs:
       ARGOS_TOKEN: ${{ secrets.ARGOS_TOKEN }}
 
   report:
-    needs: [gate, wip-on, start, wip-new, qa1, fix1, qa2, fix2, qa3]
+    needs: [gate, wip-on, start, wip-new, qa1, guard1, fix1, qa2, guard2, fix2, qa3]
     if: always() && needs.gate.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 3
@@ -270,6 +354,8 @@ jobs:
           SHA2: ${{ needs.qa2.outputs.sha }}
           SHA3: ${{ needs.qa3.outputs.sha }}
           LAST_SUMMARY: ${{ needs.qa3.outputs.summary || needs.qa2.outputs.summary || needs.qa1.outputs.summary }}
+          STOP_KIND: ${{ needs.guard2.outputs.stop == 'true' && needs.guard2.outputs.kind || (needs.guard1.outputs.stop == 'true' && needs.guard1.outputs.kind || '') }}
+          STOP_DETAIL: ${{ needs.guard2.outputs.stop == 'true' && needs.guard2.outputs.detail || needs.guard1.outputs.detail }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           NOTIFY: ${{ vars.CLAUDE_NOTIFY || 'jeffreyjoju' }}
         run: |
@@ -286,6 +372,14 @@ jobs:
             msg="@$NOTIFY Claude made no changes for #$NUM (unclear request, or nothing to do). Log: $RUN_URL"
           elif [ "$state" = success ]; then
             msg="@$NOTIFY ✅ QA passed on #$PR after $rounds fix round(s). Claude review follows; then ready for your review and merge. Log: $RUN_URL"
+          elif [ -n "$STOP_KIND" ]; then
+            if [ "$STOP_KIND" = main ]; then
+              why="this QA failure also happens on main, so it is not this PR's job. Fix main first."
+            else
+              why="the same QA failure repeated after a fix round (possible QA config conflict)."
+            fi
+            msg=$(printf '@%s ⚠️ Stopped early on #%s: %s\n\n%s\nLog: %s\n\nLast QA output:\n%s' \
+              "$NOTIFY" "${PR:-$NUM}" "$why" "$STOP_DETAIL" "$RUN_URL" "${LAST_SUMMARY:0:4000}")
           else
             msg=$(printf '@%s ❌ Gave up on #%s: QA still failing after the last fix round. Log: %s\n\nLast QA output:\n%s' \
               "$NOTIFY" "${PR:-$NUM}" "$RUN_URL" "${LAST_SUMMARY:0:4000}")
@@ -299,9 +393,11 @@ jobs:
               || gh pr edit "$PR" --repo "$REPO" --add-label "$add" || true
           fi
           if [ -n "$sha" ]; then
+            desc="failed after fix rounds"; [ -n "$STOP_KIND" ] && desc="stopped early (see PR comment)"
+            [ "$state" = success ] && desc=passed
             # Shows on the PR as a check, since GITHUB_TOKEN pushes don't start qa.yml on their own.
             gh api -X POST "repos/$REPO/statuses/$sha" -f state="$state" -f context="QA (Claude loop)" \
-              -f target_url="$RUN_URL" -f description="$([ "$state" = success ] && echo passed || echo 'failed after fix rounds')" >/dev/null
+              -f target_url="$RUN_URL" -f description="$desc" >/dev/null
           fi
 
       - name: Remove [WIP] from PR title

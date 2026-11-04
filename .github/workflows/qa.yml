@@ -10,6 +10,8 @@ name: QA
 # No package.json at all = FAIL with a clear message, so QA never passes vacuously.
 #  - pull_request / workflow_dispatch: normal check, goes red on failure.
 #  - push to main: same checks; also gives Argos the main baseline the PR screenshots are compared with.
+#    Runs on every push to main (no path filter), so a qa.config.json / .github/scripts / e2e / workflow
+#    change is always tested on main; claude-build.yml won't start while main's latest QA run failed.
 #  - workflow_call: used by claude-build.yml. The job stays green and returns `passed` + a short
 #    `summary` so the caller can hand failures to Claude. In these runs the checks themselves come from
 #    main's .github (a trusted copy), so a Claude branch can never weaken its own QA.
@@ -44,6 +46,9 @@ on:
       summary:
         description: Failure summary, max 6000 chars (empty on pass)
         value: ${{ jobs.qa.outputs.summary }}
+      failed:
+        description: Comma list of failed checks (QA_STATUS keys, e.g. E2E,LINT); empty on pass
+        value: ${{ jobs.qa.outputs.failed }}
       sha:
         description: Commit that was tested
         value: ${{ jobs.qa.outputs.sha }}
@@ -77,6 +82,7 @@ jobs:
     outputs:
       passed: ${{ steps.result.outputs.passed }}
       summary: ${{ steps.result.outputs.summary }}
+      failed: ${{ steps.result.outputs.failed }}
       sha: ${{ steps.sha.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
