@@ -108,3 +108,134 @@ for (const path of PAGES) {
     });
   });
 }
+
+test.describe("shared chrome (v4)", () => {
+  const texts = async (loc: import("@playwright/test").Locator) =>
+    (await loc.allInnerTexts()).map((t) => t.trim());
+
+  test("desktop nav labels and order", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop", "desktop only");
+    await open(page, "/");
+    const secondary = page.getByRole("navigation", { name: "Secondary", exact: true });
+    expect(await texts(secondary.locator("a"))).toEqual([
+      "Home",
+      "Our Team",
+      "Resources",
+      "About Monarch",
+      "Contact",
+      "Sign in",
+    ]);
+    const primary = page.getByRole("navigation", { name: "Primary", exact: true });
+    expect(await texts(primary.locator("a, button"))).toEqual([
+      "Our Approach",
+      "Care Programmes",
+      "The 12 Health Categories",
+      "For Families",
+    ]);
+    await expect(
+      page.getByRole("banner").getByRole("link", { name: "Arrange a Conversation" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Monarch Health – Continuous care for life" }).first(),
+    ).toBeVisible();
+  });
+
+  test("Care Programmes panel shows 5 items, arrows move, Esc closes", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop", "desktop only");
+    await open(page, "/");
+    const trigger = page.getByRole("button", { name: "Care Programmes" });
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const panel = page.getByRole("list", { name: "Care Programmes menu" });
+    expect(await texts(panel.getByRole("link"))).toEqual([
+      "Foundation",
+      "Preserve",
+      "Continuum",
+      "Signature",
+      "Compare all programmes",
+    ]);
+    await trigger.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(panel.getByRole("link", { name: "Foundation" })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(panel.getByRole("link", { name: "Preserve" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+
+  test("aria-current marks Home on /", async ({ page }, info) => {
+    await open(page, "/");
+    if (info.project.name === "mobile") {
+      await page.getByRole("button", { name: "Menu" }).click();
+      await expect(
+        page.getByRole("dialog").getByRole("link", { name: "Home" }),
+      ).toHaveAttribute("aria-current", "page");
+    } else {
+      await expect(
+        page
+          .getByRole("navigation", { name: "Secondary", exact: true })
+          .getByRole("link", { name: "Home" }),
+      ).toHaveAttribute("aria-current", "page");
+    }
+  });
+
+  test("below 1280px the menu opens, closes, returns focus and obeys Esc", async ({ page }, info) => {
+    test.skip(info.project.name !== "mobile", "mobile only");
+    await open(page, "/");
+    const menu = page.getByRole("button", { name: "Menu" });
+    await menu.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Close" }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(menu).toBeFocused();
+    await menu.click();
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(menu).toBeFocused();
+  });
+
+  test("at 360px Call is in the strip with no horizontal scroll", async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 800 });
+    await open(page, "/");
+    const strip = page.getByRole("link", { name: "Sign in" }).first().locator("..");
+    await expect(strip.getByRole("link", { name: /^Call/ })).toBeVisible();
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth,
+    );
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+
+  test("footer columns match the lists", async ({ page }) => {
+    await open(page, "/");
+    const col = (name: string) => page.getByRole("navigation", { name, exact: true });
+    expect(await texts(col("EXPLORE").getByRole("link"))).toEqual([
+      "Home",
+      "Our Approach",
+      "The 12 Health Categories",
+      "Our Team",
+      "For Families",
+      "Resources",
+      "About Monarch",
+      "Contact",
+    ]);
+    expect(await texts(col("CARE PROGRAMMES").getByRole("link"))).toEqual([
+      "Foundation",
+      "Preserve",
+      "Continuum",
+      "Signature",
+      "Compare all programmes",
+    ]);
+    expect(await texts(col("POLICIES & INFORMATION").getByRole("link"))).toEqual([
+      "Privacy Policy",
+      "Terms of Service",
+      "Membership Agreement",
+      "MSP and Physician Services",
+      "Accessibility",
+      "Careers",
+      "Contact",
+    ]);
+  });
+});
