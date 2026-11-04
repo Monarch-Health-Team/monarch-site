@@ -10,11 +10,12 @@ for (const c of CASES) {
     await page.goto(`/care-programmes/${c.slug}`);
     await expect(page.getByRole("heading", { level: 1, name: c.name })).toHaveCount(1);
     await expect(page.locator("[data-clinical-review]")).toHaveAttribute("data-clinical-items", c.items);
-    const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
+    const main = page.locator("main");
+    const crumbs = main.getByRole("navigation", { name: "Breadcrumb" });
     await expect(crumbs.getByRole("link", { name: "Care Programmes" })).toBeVisible();
     await expect(crumbs.getByText(c.short)).toHaveAttribute("aria-current", "page");
     await expect(
-      page.getByRole("navigation", { name: "Programmes" }).getByRole("link", { name: c.short }),
+      main.getByRole("navigation", { name: "Programmes" }).getByRole("link", { name: c.short }),
     ).toHaveAttribute("aria-current", "page");
   });
 
