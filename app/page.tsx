@@ -22,8 +22,9 @@ import {
   Section,
   Heading,
   ButtonLink,
+  TextLink,
 } from "@/components/primitives";
-import { GENERATED } from "@/components/site/photo";
+import { GENERATED, Photo } from "@/components/site/photo";
 import { ParallaxBackground } from "@/components/site/parallax-background";
 import { InfoTooltip } from "@/components/site/info-tooltip";
 import { COMPLIANCE } from "@/lib/compliance";
@@ -186,6 +187,7 @@ export default function HomePage() {
             <div className="mt-8">
               <ButtonLink
                 href="/memberships"
+                variant="secondary"
                 size="lg"
                 className="rounded-[10px] px-6"
               >
@@ -194,10 +196,12 @@ export default function HomePage() {
               </ButtonLink>
             </div>
           </div>
-          {/* Placeholder: no photograph yet. */}
-          <div
-            aria-hidden
-            className="mx-6 mb-10 aspect-[4/3] rounded-2xl bg-neutral-200 sm:mx-10 lg:m-0 lg:aspect-auto lg:rounded-none"
+          <Photo
+            {...GENERATED.ageingInPlace}
+            aspect="landscape"
+            priority
+            sizes="(min-width: 64rem) 50vw, 100vw"
+            className="mx-6 mb-10 sm:mx-10 lg:m-0 lg:aspect-auto lg:rounded-none"
           />
         </div>
       </section>
@@ -219,7 +223,7 @@ export default function HomePage() {
                 <h2 className="font-serif text-heading-4 font-semibold text-navy-900">
                   {title}
                 </h2>
-                <p className="max-w-[16rem] text-body leading-snug text-neutral-900">
+                <p className="max-w-[16rem] text-body-lg leading-snug text-neutral-900">
                   {text}
                 </p>
               </li>
@@ -228,34 +232,35 @@ export default function HomePage() {
         </Container>
       </section>
 
-      {/* ================================ Ageing in Place flagship */}
+      {/* ================================ Continuum */}
       <section
         aria-labelledby="aip-title"
         className="bg-navy-950 py-14 text-white md:py-20"
       >
         <Container>
           <div className="grid items-center gap-10 lg:grid-cols-[35fr_35fr_30fr] lg:gap-12">
-            {/* Placeholder: no photograph yet. */}
-            <div
-              aria-hidden
-              className="aspect-[4/3] w-full rounded-2xl bg-navy-800"
+            <Photo
+              {...GENERATED.arrangedAgeingInPlace}
+              aspect="landscape"
+              sizes="(min-width: 64rem) 33vw, 92vw"
+              className="w-full rounded-2xl"
             />
             <div>
               <p className="flex items-center gap-3 text-label font-semibold tracking-widest text-orange-400 uppercase">
-                Our flagship programme
+                Continuum
                 <span aria-hidden className="h-px w-12 bg-orange-400" />
               </p>
               <h2
                 id="aip-title"
                 className="mt-4 text-heading-1 font-bold text-white"
               >
-                Ageing in Place
+                Continuum
               </h2>
               <p className="mt-3 text-body-lg font-semibold text-white">
                 Proactive, personalized support to help you remain independent
                 at home.
               </p>
-              <p className="mt-4 text-body text-navy-100">
+              <p className="mt-4 text-body-lg text-navy-100">
                 Through annual assessments, care planning and ongoing
                 follow-up, we identify changing needs early and coordinate the
                 right support — before a crisis occurs.
@@ -264,16 +269,17 @@ export default function HomePage() {
                 <ButtonLink
                   href="/care/ageing-in-place"
                   size="lg"
+                  variant="onNavy"
                   className="rounded-[10px]"
                 >
-                  Learn about Ageing in Place
+                  Learn about Continuum
                   <ArrowRight aria-hidden className="size-4" />
                 </ButtonLink>
               </div>
             </div>
             <ul className="space-y-4 border-t border-white/25 pt-8 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-10">
               {AIP_CHECKLIST.map((item) => (
-                <li key={item} className="flex items-center gap-3 text-body text-white">
+                <li key={item} className="flex items-center gap-3 text-body-lg text-white">
                   <CircleCheck
                     aria-hidden
                     className="size-6 shrink-0 text-orange-400"
@@ -458,10 +464,10 @@ export default function HomePage() {
                         what to do next.
                       </p>
                     </div>
-                    <ButtonLink href="/method" size="lg" className="mt-8 rounded-2xl">
+                    <TextLink href="/method" className="mt-8">
                       Read Our Method in full
                       <ArrowRight aria-hidden className="size-4" />
-                    </ButtonLink>
+                    </TextLink>
                   </div>
                 }
               />
@@ -512,14 +518,14 @@ export default function HomePage() {
                     />
                   </li>
                 )}
-                <li className="flex w-full flex-col items-center gap-3 rounded-2xl border border-neutral-200 bg-white px-5 py-6 shadow-sm xl:w-0 xl:flex-1">
+                <li className="flex w-full flex-col items-center gap-3 rounded-lg border border-neutral-200 bg-white px-5 py-6 xl:w-0 xl:flex-1">
                   <span className="flex size-12 items-center justify-center rounded-full bg-orange-50 text-navy-900">
                     <Icon aria-hidden className="size-6" strokeWidth={1.75} />
                   </span>
                   <h3 className="text-heading-5 font-semibold text-navy-900">
                     {title}
                   </h3>
-                  <p className="text-body leading-snug font-normal text-neutral-900">
+                  <p className="text-body-lg leading-snug font-normal text-neutral-900">
                     {text}
                   </p>
                 </li>
@@ -665,11 +671,11 @@ export default function HomePage() {
               compact explanation next to the choice itself, in place of the
               several longer ones that stood on this page. DRAFT wording,
               for BC counsel review before publication. */}
-          <div className="mx-auto mt-10 max-w-5xl rounded-2xl border border-neutral-200 bg-neutral-50 p-6 shadow-sm md:p-8">
+          <div className="mx-auto mt-10 max-w-5xl rounded-lg border border-neutral-200 bg-white p-6 md:p-8">
             <h3 className="text-center text-heading-4 font-bold text-navy-900">
               What your membership covers
             </h3>
-            <ul className="mt-6 grid gap-5 text-body leading-snug text-neutral-900 md:grid-cols-3">
+            <ul className="mt-6 grid gap-5 text-body-lg leading-snug text-neutral-900 md:grid-cols-3">
               {MEMBERSHIP_POINTS.map(({ title, text }) => (
                 <li key={title} className="flex gap-3">
                   <Check
@@ -686,7 +692,7 @@ export default function HomePage() {
                 </li>
               ))}
             </ul>
-            <p className="mt-6 text-center text-body font-medium text-navy-900">
+            <p className="mt-6 text-center text-body-lg font-medium text-navy-900">
               Fees for any Monarch service are shared with you in writing before
               you begin.
             </p>
@@ -701,17 +707,9 @@ export default function HomePage() {
             >
               Compare the memberships
             </ButtonLink>
-            <ButtonLink
-              href="/memberships/find"
-              size="lg"
-              className="w-[17rem] rounded-2xl"
-            >
-              <span className="text-center">
-                Not sure which fits?
-                <br />
-                Help me choose
-              </span>
-            </ButtonLink>
+            <TextLink href="/memberships/find">
+              Not sure which fits? Help me choose
+            </TextLink>
           </div>
         </Container>
       </Section>
@@ -838,10 +836,10 @@ export default function HomePage() {
             </p>
           </div>
           <div className="mt-10 flex justify-center">
-            <ButtonLink href={MSP_PAGE_HREF} className="rounded-2xl">
+            <TextLink href={MSP_PAGE_HREF}>
               How Monarch works with MSP
               <ArrowRight aria-hidden className="size-4" />
-            </ButtonLink>
+            </TextLink>
           </div>
         </Container>
       </Section>
@@ -896,8 +894,7 @@ export default function HomePage() {
             the family is never under the words. From lg it is the
             background, with the copy and buttons on its right. */}
         <ParallaxBackground
-          src="/images/gen/bg-care.jpg"
-          focal="0% center"
+          {...GENERATED.bgHero}
           strength={0.1}
           className="max-lg:relative max-lg:z-0 max-lg:inset-auto max-lg:h-72 max-lg:w-full sm:max-lg:h-96"
         />
@@ -918,17 +915,17 @@ export default function HomePage() {
               <p>Then build the care you need for the years ahead.</p>
             </div>
             <div className="mt-8 flex flex-col items-center gap-3.5 lg:items-end">
-              <ButtonLink href="/memberships" size="lg" className="w-[17rem] rounded-2xl">
-                Find Your Care Pathway
-              </ButtonLink>
               <ButtonLink
-                href="/contact?subject=consultation"
+                href="/memberships"
                 variant="secondary"
                 size="lg"
                 className="w-[17rem] rounded-2xl lg:bg-white/90 lg:hover:bg-white"
               >
-                Talk to Monarch
+                Find Your Care Pathway
               </ButtonLink>
+              <TextLink href="/contact?subject=consultation">
+                Talk to Monarch
+              </TextLink>
             </div>
           </div>
         </Container>

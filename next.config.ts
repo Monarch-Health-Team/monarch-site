@@ -6,6 +6,7 @@ import type { NextConfig } from "next";
  * headers are kept.
  */
 const nextConfig: NextConfig = {
+  images: { formats: ["image/avif", "image/webp"] },
   poweredByHeader: false,
   async headers() {
     return [

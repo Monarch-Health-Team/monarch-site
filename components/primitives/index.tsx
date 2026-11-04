@@ -260,6 +260,33 @@ export function ButtonLink({
   );
 }
 
+/**
+ * A text link styled as a call to action: orange-700 (7.0:1 on the tinted
+ * bands), underlined, 44px tall target. For actions that are neither the
+ * header's solid button nor an outline button.
+ */
+export function TextLink({
+  href,
+  children,
+  className,
+}: {
+  href: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "inline-flex min-h-11 items-center gap-2 text-body-lg font-semibold text-orange-700 underline underline-offset-4 hover:text-orange-800",
+        className,
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
+
 export function Button({
   children,
   variant = "primary",

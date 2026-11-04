@@ -7,7 +7,7 @@
 
 export const JOURNAL_CATEGORIES = [
   "Ageing Well",
-  "Executive Wellness",
+  "Preserve",
   "Caregiver Tips",
   "Home Safety",
   "Industry News",
