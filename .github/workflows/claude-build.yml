@@ -261,6 +261,8 @@ jobs:
           PR: ${{ needs.start.outputs.pr_number || needs.gate.outputs.pr }}
           START_RESULT: ${{ needs.start.result }}
           START_CHANGED: ${{ needs.start.outputs.changed }}
+          START_REASON: ${{ needs.start.outputs.claude_reason }}
+          FIX_REASON: ${{ needs.fix2.outputs.claude_reason || needs.fix1.outputs.claude_reason }}
           QA1: ${{ needs.qa1.outputs.passed }}
           QA2: ${{ needs.qa2.outputs.passed }}
           QA3: ${{ needs.qa3.outputs.passed }}
@@ -279,7 +281,7 @@ jobs:
           { echo "state=$state"; echo "sha=$sha"; echo "pr=$PR"; } >> "$GITHUB_OUTPUT"
 
           if [ "$START_RESULT" != success ]; then
-            msg="@$NOTIFY Claude could not finish #$NUM (agent step failed or timed out, possibly a Claude usage limit). Log: $RUN_URL"
+            msg="@$NOTIFY Claude could not finish #$NUM: ${START_REASON:-the agent job failed before Claude ran (see the log)}. Log: $RUN_URL"
           elif [ "$START_CHANGED" != true ]; then
             msg="@$NOTIFY Claude made no changes for #$NUM (unclear request, or nothing to do). Log: $RUN_URL"
           elif [ "$state" = success ]; then
@@ -287,6 +289,7 @@ jobs:
           else
             msg=$(printf '@%s ❌ Gave up on #%s: QA still failing after the last fix round. Log: %s\n\nLast QA output:\n%s' \
               "$NOTIFY" "${PR:-$NUM}" "$RUN_URL" "${LAST_SUMMARY:0:4000}")
+            [ -n "$FIX_REASON" ] && msg=$(printf '%s\n\nThe last Claude fix round did not finish: %s' "$msg" "$FIX_REASON")
           fi
 
           gh issue comment "${PR:-$NUM}" --repo "$REPO" --body "$msg"

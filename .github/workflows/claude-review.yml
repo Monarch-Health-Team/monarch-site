@@ -39,7 +39,7 @@ env:
 jobs:
   analyze:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 16
     permissions:
       contents: read
       issues: read
@@ -105,7 +105,10 @@ jobs:
       - name: Run Claude review
         id: claude
         uses: anthropics/claude-code-action@v1
-        timeout-minutes: 8
+        timeout-minutes: 12
+        # A review that writes its verdict in 10-11 turns used to fail the run ("exceeding the configured
+        # maximum of 8"). "Read the verdict" below is the real check (verdict.json missing -> error).
+        continue-on-error: true
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: "github-actions[bot],github-actions"
@@ -123,7 +126,7 @@ jobs:
             {"verdict": "pass" | "fix", "review": "<markdown, max 12 lines>", "fix": "<only when verdict is fix: max 8 short imperative lines, each one concrete change>"}
           claude_args: >-
             --model ${{ vars.CLAUDE_REVIEW_MODEL || 'sonnet' }}
-            --max-turns 8
+            --max-turns ${{ vars.CLAUDE_REVIEW_MAX_TURNS || '20' }}
             --allowedTools "Read,Glob,Grep,Write"
             --disallowedTools "Bash,Edit,MultiEdit,WebFetch,WebSearch"
 

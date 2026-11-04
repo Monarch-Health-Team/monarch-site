@@ -47,6 +47,9 @@ on:
         value: ${{ jobs.publish.outputs.sha }}
       pr_number:
         value: ${{ jobs.publish.outputs.pr_number }}
+      claude_reason:
+        description: Plain-English reason when the Claude step did not finish (empty when it did)
+        value: ${{ jobs.edit.outputs.claude_reason }}
     secrets:
       CLAUDE_CODE_OAUTH_TOKEN:
         required: true
@@ -61,13 +64,15 @@ defaults:
 jobs:
   edit:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Big multi-part issues need 40-50+ turns (~10-25 min); keep room above the Claude step's own limit.
+    timeout-minutes: 45
     permissions:
       contents: read
       issues: read
       pull-requests: read
     outputs:
       changed: ${{ steps.patch.outputs.changed }}
+      claude_reason: ${{ steps.check.outputs.reason }}
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
@@ -182,14 +187,20 @@ jobs:
           } > "$RUNNER_TEMP/prompt.txt"
           { echo "prompt<<PROMPT_EOF_7c1"; cat "$RUNNER_TEMP/prompt.txt"; echo "PROMPT_EOF_7c1"; } >> "$GITHUB_OUTPUT"
           tools="Read,Edit,MultiEdit,Write,Glob,Grep,TodoWrite"
-          IFS='|' read -ra cs <<< "$CHECKS"; for c in "${cs[@]}"; do tools+=",Bash($c)"; done
+          # Exact command plus the same command with arguments (e.g. `pnpm lint --fix`, `pnpm test -- file`),
+          # so Claude doesn't burn turns on permission denials.
+          IFS='|' read -ra cs <<< "$CHECKS"; for c in "${cs[@]}"; do tools+=",Bash($c),Bash($c:*)"; done
           [ "$HAS_PACKAGE" = true ] || tools+=",Bash(pnpm install),Bash(pnpm add:*)"
           echo "tools=$tools" >> "$GITHUB_OUTPUT"
 
       - name: Run Claude Code
         id: claude
         uses: anthropics/claude-code-action@v1
-        timeout-minutes: 18
+        timeout-minutes: 40
+        # The action fails a run that *finished successfully* when it used more turns than --max-turns
+        # ("Claude reported a successful result after 47 turns, exceeding the configured maximum of 40"),
+        # which threw away finished work. "Check Claude result" below decides pass/fail from the real result.
+        continue-on-error: true
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           allowed_bots: "github-actions[bot],github-actions"
@@ -199,7 +210,7 @@ jobs:
           prompt: ${{ steps.ctx.outputs.prompt }}
           claude_args: >-
             --model ${{ vars.CLAUDE_MODEL || 'sonnet' }}
-            --max-turns ${{ vars.CLAUDE_MAX_TURNS || (steps.app.outputs.has_package == 'true' && '40' || '60') }}
+            --max-turns ${{ vars.CLAUDE_MAX_TURNS || (steps.app.outputs.has_package != 'true' && '120' || (inputs.mode == 'build' && '100' || '60')) }}
             --allowedTools "${{ steps.ctx.outputs.tools }}"
             --disallowedTools "WebFetch,WebSearch"
 
@@ -240,6 +251,44 @@ jobs:
             ${{ runner.temp }}/claude.patch
             ${{ runner.temp }}/claude-summary.md
           retention-days: 3
+
+      # Decides whether the Claude step really failed, and says why in plain words (the report comment uses it).
+      - name: Check Claude result
+        id: check
+        if: always()
+        env:
+          OUTCOME: ${{ steps.claude.outcome }}
+          EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
+          MAX_TURNS: ${{ vars.CLAUDE_MAX_TURNS || (steps.app.outputs.has_package != 'true' && '120' || (inputs.mode == 'build' && '100' || '60')) }}
+        run: |
+          f="$EXEC_FILE"; { [ -n "$f" ] && [ -f "$f" ]; } || f="$RUNNER_TEMP/claude-execution-output.json"
+          r='{}'; [ -f "$f" ] && r=$(jq -c '[.[] | select(.type=="result")] | last // {}' "$f" 2>/dev/null || echo '{}')
+          subtype=$(jq -r '.subtype // ""' <<<"$r"); is_error=$(jq -r '.is_error // false' <<<"$r")
+          turns=$(jq -r '.num_turns // "?"' <<<"$r"); mins=$(jq -r '((.duration_ms // 0) / 60000 | floor)' <<<"$r")
+          text=$(jq -r '.result // "" | tostring' <<<"$r" | tr '\n' ' ' | cut -c1-300)
+          denied=$(jq -r '(.permission_denials // [])[] | "\(.tool_name) \((.tool_input.command // .tool_input.file_path // "") | tostring | .[0:120])"' <<<"$r" 2>/dev/null | sort | uniq -c | sort -rn | head -n 10 || true)
+          status=fail; reason=""
+          if [ "$OUTCOME" = success ]; then status=ok
+          elif [ "$subtype" = success ] && [ "$is_error" != true ]; then
+            status=ok; echo "::warning::Claude finished in $turns turns (over the $MAX_TURNS cap); keeping its work."
+          elif [ "$subtype" = error_max_turns ]; then
+            reason="it ran out of turns ($turns of $MAX_TURNS, ${mins} min). The issue is too big for one run: split it into smaller issues, or raise the CLAUDE_MAX_TURNS repo variable"
+          elif printf '%s' "$text" | grep -qiE 'usage limit|rate.?limit|429|overloaded|credit'; then
+            reason="Claude hit a usage or rate limit: ${text:0:200}"
+          elif printf '%s' "$text" | grep -qiE '401|unauthori|oauth|invalid.*token|authenticat'; then
+            reason="the Claude login was refused (CLAUDE_CODE_OAUTH_TOKEN may be expired; JJ renews it with \`claude setup-token\`): ${text:0:200}"
+          elif [ -n "$subtype" ]; then
+            reason="Claude stopped with an error ($subtype after $turns turns): ${text:-no message}"
+          else
+            reason="the Claude step never returned a result: it hit the 40-minute step limit or could not start (see the 'Run Claude Code' step in the log)"
+          fi
+          echo "Claude step: outcome=$OUTCOME subtype=${subtype:-none} turns=$turns minutes=$mins status=$status"
+          [ -n "$denied" ] && { echo "Permission denials (count, tool, command):"; printf '%s\n' "$denied"; }
+          { echo "### Claude step"; echo "outcome \`$OUTCOME\`, result \`${subtype:-none}\`, $turns turns, ${mins} min"
+            [ -n "$reason" ] && echo "**Did not finish:** $reason"
+            [ -n "$denied" ] && { echo; echo "Permission denials:"; printf '%s\n' "$denied" | sed 's/^/    /'; }; } >> "$GITHUB_STEP_SUMMARY"
+          echo "reason=$(printf '%s' "$reason" | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+          if [ "$status" != ok ]; then echo "::error::Claude did not finish: $reason"; exit 1; fi
 
   publish:
     needs: edit
