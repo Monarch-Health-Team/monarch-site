@@ -3,8 +3,5 @@
   "node": "lts/*",
   "lighthouserc": "lighthouserc.json",
   "appE2e": "test:e2e",
-  "e2e": {},
-  "skip": [
-    "e2e"
-  ]
+  "e2e": {}
 }
