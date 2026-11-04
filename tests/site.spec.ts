@@ -208,6 +208,49 @@ test.describe("shared chrome (v4)", () => {
     expect(overflow).toBeLessThanOrEqual(0);
   });
 
+  for (const vp of [
+    { width: 320, height: 640 },
+    { width: 1440, height: 900 },
+  ]) {
+    test(`sticky header matches --header-h and never covers focus at ${vp.width}px`, async ({ page }) => {
+      await page.setViewportSize(vp);
+      await open(page, "/");
+      await page.evaluate(() => window.scrollTo(0, 1500));
+      const { h, token } = await page.evaluate(() => {
+        const header = document.querySelector("header")!;
+        const probe = document.createElement("div");
+        probe.style.height = "var(--header-h)";
+        document.body.appendChild(probe);
+        const token = probe.getBoundingClientRect().height;
+        probe.remove();
+        // Below xl the header is display:contents; measure its sticky bar.
+        const el =
+          getComputedStyle(header).display === "contents"
+            ? [...header.querySelectorAll<HTMLElement>("*")].find(
+                (e) => getComputedStyle(e).position === "sticky",
+              )!
+            : header;
+        return { h: el.getBoundingClientRect().height, token };
+      });
+      expect(Math.abs(h - token)).toBeLessThanOrEqual(2);
+
+      const link = page.locator("footer a:visible").first();
+      await link.focus();
+      const box = await link.boundingBox();
+      const bottom = await page.evaluate(() => {
+        const bar = document.querySelector("header")!;
+        const els = [...bar.querySelectorAll<HTMLElement>("*")];
+        return Math.max(
+          0,
+          ...els
+            .filter((e) => getComputedStyle(e).position === "sticky" || e === bar)
+            .map((e) => e.getBoundingClientRect().bottom),
+        );
+      });
+      expect(box!.y).toBeGreaterThanOrEqual(bottom - 1);
+    });
+  }
+
   test("footer columns match the lists", async ({ page }) => {
     await open(page, "/");
     const col = (name: string) => page.getByRole("navigation", { name, exact: true });

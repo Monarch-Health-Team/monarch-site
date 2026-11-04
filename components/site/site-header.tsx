@@ -177,7 +177,7 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
   );
 
   return (
-    <header className="sticky top-0 z-50 bg-white">
+    <header className="contents xl:sticky xl:top-0 xl:z-50 xl:block xl:bg-white">
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-orange-600 focus:px-5 focus:py-3 focus:font-semibold focus:text-white"
@@ -313,8 +313,8 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
       </div>
 
       {/* ------------------------------------------------ below xl */}
-      <div className="xl:hidden" inert={mobileOpen}>
-        <div className="border-b border-neutral-200">
+      <div className="contents xl:hidden" inert={mobileOpen}>
+        <div className="sticky top-0 z-50 border-b border-neutral-200 bg-white">
           <div className="mx-auto flex h-[72px] w-full max-w-[1280px] items-center justify-between gap-1 px-4 sm:px-8">
             <Logo
               priority
@@ -366,7 +366,7 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
             </Link>
           </div>
         </div>
-        <div className="mx-auto w-full max-w-[1280px] border-b border-neutral-200 px-4 py-3 sm:px-8">
+        <div className="mx-auto w-full max-w-[1280px] border-b border-neutral-200 bg-white px-4 py-3 sm:px-8">
           <Link href={CTA_HREF} className={cn(ctaClass, "w-full")}>
             {CTA_LABEL}
             <ArrowRight aria-hidden className="size-5" />

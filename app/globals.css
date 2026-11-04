@@ -225,12 +225,9 @@
        (docs/changes/focus-not-obscured). The bar's height is named as
        --header-h; the hero on / consumes it while the soft-launch banner is
        on (docs/changes/soft-launch-switch). */
-    --header-h: calc(3.5rem + 1px);
-    @media (width >= 40rem) {
-      --header-h: calc(max(53px + 1.3125rem, 3.5rem + 1px));
-    }
-    @media (width >= 48rem) {
-      --header-h: calc(max(50.7px + 1.3125rem, 3.5rem + 1px));
+    --header-h: 73px; /* below xl: only the 72px bar + 1px rule is sticky */
+    @media (width >= 80rem) {
+      --header-h: 137px; /* xl: 48px strip + 88px bar + 1px rule */
     }
     scroll-padding-top: calc(var(--header-h) + 8px);
   }

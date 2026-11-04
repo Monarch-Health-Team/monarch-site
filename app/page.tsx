@@ -40,8 +40,6 @@ import { METHOD_STEPS } from "@/content/method";
 import { HomeReading } from "@/components/site/home-reading";
 import { FOCUS_AREAS } from "@/content/healthspan";
 import { getAllPosts } from "@/lib/journal";
-import { SOFT_LAUNCH_ON } from "@/lib/soft-launch";
-import { cn } from "@/lib/utils";
 import { SITE } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -156,13 +154,7 @@ export default function HomePage() {
       <section
         aria-labelledby="home-hero-title"
         data-no-butterfly="true"
-        className={cn(
-          "relative isolate overflow-hidden bg-neutral-100",
-          // With the soft-launch banner on, the header is sticky in flow
-          // instead of fixed; pull the hero up under it by the bar's height
-          // so it still runs to the top of the bar (soft-launch-switch).
-          SOFT_LAUNCH_ON && "-mt-(--header-h)",
-        )}
+        className="relative isolate overflow-hidden bg-neutral-100"
       >
         <div className="grid lg:min-h-[44rem] lg:grid-cols-2">
           <div className="flex flex-col items-start justify-center px-6 pt-28 pb-10 sm:px-10 lg:py-24 lg:pr-12 lg:pl-[max(2.5rem,calc((100vw-80rem)/2+2.5rem))]">
