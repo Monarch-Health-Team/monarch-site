@@ -38,7 +38,7 @@ export const PROGRAMME_COMMON = {
   compareTitle: "Compare with our other programmes",
   compareBody:
     "No programme is considered better than another. The programmes differ in how often we see you and how much support you receive.",
-  compareAll: "See all four side by side",
+  compareAll: "Compare all programmes",
   talkBody:
     "Talk with us about your health, your circumstances and your goals. A first conversation is a relaxed opportunity to ask questions and understand your options, with no pressure to join.",
   button: "Arrange a Conversation",

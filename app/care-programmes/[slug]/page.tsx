@@ -83,8 +83,8 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 const GRID_CLASS = {
-  3: "md:grid-cols-2 min-[1100px]:grid-cols-3",
-  4: "md:grid-cols-2 min-[1100px]:grid-cols-4",
+  3: "md:grid-cols-2 lg:grid-cols-3",
+  4: "md:grid-cols-2 lg:grid-cols-4",
 } as const;
 const GRID = "mt-8 grid list-none gap-5 p-0";
 const SPLIT = "grid gap-8 lg:grid-cols-2 lg:gap-14";

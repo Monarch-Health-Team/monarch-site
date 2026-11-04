@@ -24,8 +24,7 @@ type Props = ComponentProps<typeof NextLink>;
  * so nothing leads to a 404.
  */
 export default function Link({ href, ...rest }: Props) {
-  const path = typeof href === "string" ? href : (href.pathname ?? "/");
-  const internal = path.startsWith("/") && !path.startsWith("//");
-  const live = !internal || LIVE_PATHS.has(path.split(/[?#]/)[0] || "/");
-  return <NextLink href={live ? href : "#"} {...rest} />;
+  const resolved =
+    typeof href === "string" ? liveHref(href) : href.pathname && !LIVE_PATHS.has(href.pathname) ? "#" : href;
+  return <NextLink href={resolved} {...rest} />;
 }

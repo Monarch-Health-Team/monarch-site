@@ -21,12 +21,13 @@ for (const c of CASES) {
 
   test(`${c.slug}: sections present`, async ({ page }) => {
     await page.goto(`/care-programmes/${c.slug}`);
-    await expect(page.getByRole("heading", { level: 2, name: `What ${c.short} includes` })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: "What we check, and how often" })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: "Between your assessments" })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: "Good to know before you start" })).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: c.talk })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Compare all programmes" })).toBeVisible();
+    const main = page.locator("main");
+    await expect(main.getByRole("heading", { level: 2, name: `What ${c.short} includes` })).toBeVisible();
+    await expect(main.getByRole("heading", { level: 2, name: "What we check, and how often" })).toBeVisible();
+    await expect(main.getByRole("heading", { level: 2, name: "Between your assessments" })).toBeVisible();
+    await expect(main.getByRole("heading", { level: 2, name: "Good to know before you start" })).toBeVisible();
+    await expect(main.getByRole("heading", { level: 2, name: c.talk })).toBeVisible();
+    await expect(main.getByRole("link", { name: "Compare all programmes" })).toBeVisible();
   });
 
   test(`${c.slug}: no horizontal scroll`, async ({ page }) => {
