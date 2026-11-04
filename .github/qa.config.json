@@ -3,5 +3,5 @@
   "node": "lts/*",
   "lighthouserc": "lighthouserc.json",
   "appE2e": "test:e2e",
-  "e2e": {}
+  "e2e": { "ignoreLinks": ["^#$"] }
 }
