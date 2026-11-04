@@ -19,21 +19,16 @@ export function liveHref(href: string): string {
 
 type Props = ComponentProps<typeof NextLink>;
 
-/** Pages that are not built yet render as plain text, not as a dead "#" link. */
+/** Pages that are not built yet keep a visible link, pointed at "#". */
 export default function Link({ href, children, className, ...rest }: Props) {
-  const live =
+  const target =
     typeof href === "string"
-      ? liveHref(href) === href
-      : !href.pathname || LIVE_PATHS.has(href.pathname);
-  if (!live) {
-    return (
-      <span className={className} aria-disabled="true">
-        {children}
-      </span>
-    );
-  }
+      ? liveHref(href)
+      : !href.pathname || LIVE_PATHS.has(href.pathname)
+        ? href
+        : "#";
   return (
-    <NextLink href={href} className={className} {...rest}>
+    <NextLink href={target} className={className} {...rest}>
       {children}
     </NextLink>
   );
