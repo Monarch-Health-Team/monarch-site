@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "@/components/site/live-link";
 import { usePathname } from "next/navigation";
 import {
@@ -51,14 +51,24 @@ function deskLinkClass(active: boolean) {
 const ctaClass =
   "inline-flex h-14 items-center justify-center gap-2 rounded-[10px] bg-orange-600 px-6 text-base font-bold whitespace-nowrap text-white transition-colors hover:bg-orange-700 motion-reduce:transition-none";
 
-type MenuId = "care" | "about";
+const noopSubscribe = () => () => {};
+
+type MenuId ="care" | "about";
 const MENU_DOM_ID: Record<MenuId, string> = {
   care: "care-programmes-menu",
   about: "about-menu",
 };
 
 export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
-  const pathname = usePathname();
+  const routerPath = usePathname();
+  // On a 404 the router can report the internal "/_not-found" route; use the
+  // address in the bar so About still shows as current on /contact.
+  const locationPath = useSyncExternalStore(
+    noopSubscribe,
+    () => window.location.pathname,
+    () => routerPath,
+  );
+  const pathname = routerPath === "/_not-found" ? locationPath : routerPath;
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileCare, setMobileCare] = useState(false);
   const [slidIn, setSlidIn] = useState(false);
