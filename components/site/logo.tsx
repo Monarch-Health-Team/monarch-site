@@ -28,6 +28,7 @@ const TAGLINE_MIN_WIDTH = 190;
 /** Full class names, so Tailwind can see them. */
 const DESKTOP_WIDTH_CLASS = {
   md: "md:w-[var(--logo-w)]",
+  hdr: "hdr:w-[var(--logo-w)]",
   xl: "xl:w-[var(--logo-w)]",
 } as const;
 
@@ -39,14 +40,17 @@ export function Logo({
   desktopFrom = "xl",
   tagline,
   priority = false,
+  current = false,
 }: {
+  /** Marks the link as the current page (the logo is Home's link). */
+  current?: boolean;
   variant?: "primary" | "reversed";
   className?: string;
   /** Width from `desktopFrom` up. */
   width?: number;
   /** Width below `desktopFrom`. */
   mobileWidth?: number;
-  desktopFrom?: "md" | "xl";
+  desktopFrom?: "md" | "hdr" | "xl";
   /** The line set beneath the mark. Needs an entry in TAGLINE_ASSETS. */
   tagline?: string;
   /** Preload the lockup: only the header's, which is in the first screen. */
@@ -66,6 +70,7 @@ export function Logo({
   return (
     <Link
       href="/"
+      aria-current={current ? "page" : undefined}
       className={`inline-flex min-h-12 shrink-0 items-center ${className ?? ""}`}
       style={
         {

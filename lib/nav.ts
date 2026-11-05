@@ -9,18 +9,21 @@ export type NavLink = {
 };
 
 /**
- * One entry in the header. `row` is where it sits on desktop: "utility" is
- * the thin navy-50 row above the logo, "main" the white row beside it. The
- * order of PRIMARY_NAV is the order of the phone menu.
+ * One entry in the header bar. The order of PRIMARY_NAV is the order of the
+ * desktop bar, left to right; the phone sheet uses the same order.
  */
 export type NavSection = {
   label: string;
   href: string;
-  row: "utility" | "main";
   /** Names only: no descriptions, photographs, numbers or badges. */
   children?: NavLink[];
   /** The link after the divider at the foot of the children. */
   childrenFooter?: NavLink;
+  /**
+   * The phone sheet shows this entry as plain links, not a group: the label
+   * itself (to `href`), then each child whose href differs.
+   */
+  sheetFlat?: boolean;
 };
 
 /**
@@ -47,25 +50,28 @@ export const CARE_PROGRAMME_LINKS: NavLink[] = [
 ];
 
 /**
- * The header, in phone-menu order. Desktop splits it by `row`: utility links
- * above, main links beside the logo (each row keeps this order).
+ * The header bar, left to right. The phone sheet lists the same entries in
+ * this order.
  */
 export const PRIMARY_NAV: NavSection[] = [
-  { label: "Home", href: "/", row: "utility" },
-  { label: "Our Approach", href: "/our-approach", row: "main" },
+  { label: "Our Approach", href: "/our-approach" },
   {
     label: "Care Programmes",
     href: "/care-programmes",
-    row: "main",
     children: CARE_PROGRAMME_LINKS,
     childrenFooter: CARE_PROGRAMMES_COMPARE,
   },
-  { label: "The 12 Health Categories", href: "/health-categories", row: "main" },
-  { label: "Our Team", href: "/our-team", row: "utility" },
-  { label: "For Families", href: "/for-families", row: "main" },
-  { label: "Resources", href: "/resources", row: "utility" },
-  { label: "About Monarch", href: "/about", row: "utility" },
-  { label: "Contact", href: "/contact", row: "utility" },
+  { label: "For Families", href: "/for-families" },
+  { label: "Resources", href: "/resources" },
+  {
+    label: "About",
+    href: "/about",
+    sheetFlat: true,
+    children: [
+      { label: "About Monarch", href: "/about" },
+      { label: "Contact", href: "/contact" },
+    ],
+  },
 ];
 
 /** The one solid call to action, everywhere. */

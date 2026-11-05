@@ -116,25 +116,22 @@ test.describe("shared chrome (v4)", () => {
   test("desktop nav labels and order", async ({ page }, info) => {
     test.skip(info.project.name !== "desktop", "desktop only");
     await open(page, "/");
-    const secondary = page.getByRole("navigation", { name: "Secondary", exact: true });
-    expect(await texts(secondary.locator("a"))).toEqual([
-      "Home",
-      "Our Team",
-      "Resources",
-      "About Monarch",
-      "Contact",
-      "Sign in",
-    ]);
+    await expect(page.getByRole("navigation", { name: "Secondary", exact: true })).toHaveCount(0);
     const primary = page.getByRole("navigation", { name: "Primary", exact: true });
     expect(await texts(primary.locator("a, button"))).toEqual([
       "Our Approach",
       "Care Programmes",
-      "The 12 Health Categories",
       "For Families",
+      "Resources",
+      "About",
     ]);
-    await expect(
-      page.getByRole("banner").getByRole("link", { name: "Arrange a Conversation" }),
-    ).toBeVisible();
+    const banner = page.getByRole("banner");
+    await expect(banner.getByRole("link", { name: "Sign in", exact: true })).toHaveCount(1);
+    await expect(banner.getByRole("link", { name: "Arrange a Conversation" })).toHaveCount(1);
+    await expect(banner.getByRole("link", { name: "Arrange a Conversation" })).toBeVisible();
+    for (const name of ["Our Team", "The 12 Health Categories", "Contact"]) {
+      await expect(banner.getByRole("link", { name, exact: true })).toHaveCount(0);
+    }
     await expect(
       page.getByRole("link", { name: "Monarch Health – Continuous care for life" }).first(),
     ).toBeVisible();
@@ -164,21 +161,40 @@ test.describe("shared chrome (v4)", () => {
     await expect(trigger).toBeFocused();
   });
 
-  test("aria-current marks Home on /", async ({ page }, info) => {
+  test("About menu lists About Monarch and Contact, arrows move, Esc closes and returns focus", async ({ page }, info) => {
+    test.skip(info.project.name !== "desktop", "desktop only");
+    await page.setViewportSize({ width: 1440, height: 900 });
     await open(page, "/");
-    if (info.project.name === "mobile") {
-      await page.getByRole("button", { name: "Menu" }).click();
-      await expect(
-        page.getByRole("dialog").getByRole("link", { name: "Home" }),
-      ).toHaveAttribute("aria-current", "page");
-    } else {
+    const trigger = page.getByRole("button", { name: "About", exact: true });
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const panel = page.getByRole("list", { name: "About menu" });
+    expect(await texts(panel.getByRole("link"))).toEqual(["About Monarch", "Contact"]);
+    await trigger.focus();
+    await page.keyboard.press("ArrowDown");
+    await expect(panel.getByRole("link", { name: "About Monarch" })).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(panel.getByRole("link", { name: "Contact" })).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(panel).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+  });
+
+  for (const vp of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    test(`aria-current marks the logo on / at ${vp.width}px`, async ({ page }) => {
+      await page.setViewportSize(vp);
+      await open(page, "/");
       await expect(
         page
-          .getByRole("navigation", { name: "Secondary", exact: true })
-          .getByRole("link", { name: "Home" }),
+          .getByRole("banner")
+          .getByRole("link", { name: "Monarch Health – Continuous care for life" })
+          .first(),
       ).toHaveAttribute("aria-current", "page");
-    }
-  });
+    });
+  }
 
   test("below 1280px the menu opens, closes, returns focus and obeys Esc", async ({ page }, info) => {
     test.skip(info.project.name !== "mobile", "mobile only");
@@ -187,6 +203,20 @@ test.describe("shared chrome (v4)", () => {
     await menu.click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
+    const items = (await texts(dialog.locator("a, button"))).filter(
+      (t) => t && t !== "Close",
+    );
+    expect(items).toEqual([
+      "Arrange a Conversation",
+      "Call (250) 818-4425",
+      "Our Approach",
+      "Care Programmes",
+      "For Families",
+      "Resources",
+      "About",
+      "Contact",
+      "Sign in",
+    ]);
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toHaveCount(0);
     await expect(menu).toBeFocused();
@@ -197,19 +227,30 @@ test.describe("shared chrome (v4)", () => {
     await expect(menu).toBeFocused();
   });
 
-  test("at 360px Call is in the strip with no horizontal scroll", async ({ page }) => {
-    await page.setViewportSize({ width: 360, height: 800 });
-    await open(page, "/");
-    const strip = page.getByRole("link", { name: "Sign in" }).first().locator("..");
-    await expect(strip.getByRole("link", { name: /^Call/ })).toBeVisible();
-    const overflow = await page.evaluate(
-      () => document.documentElement.scrollWidth - window.innerWidth,
-    );
-    expect(overflow).toBeLessThanOrEqual(0);
-  });
+  for (const width of [320, 360]) {
+    test(`at ${width}px the bar has only the logo and Menu; Call is in the sheet; no horizontal scroll`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 });
+      await open(page, "/");
+      const banner = page.getByRole("banner");
+      await expect(banner.getByRole("button", { name: "Menu" })).toBeVisible();
+      await expect(banner.getByRole("link", { name: /^Call/ })).toHaveCount(0);
+      await expect(banner.getByRole("link", { name: "Sign in" })).toBeHidden();
+      await expect(banner.getByRole("link", { name: "Arrange a Conversation" })).toBeHidden();
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth - window.innerWidth,
+      );
+      expect(overflow).toBeLessThanOrEqual(0);
+      await banner.getByRole("button", { name: "Menu" }).click();
+      await expect(
+        page.getByRole("dialog").getByRole("link", { name: "Call (250) 818-4425" }),
+      ).toBeVisible();
+    });
+  }
 
   for (const vp of [
     { width: 320, height: 640 },
+    { width: 1279, height: 800 },
+    { width: 1280, height: 800 },
     { width: 1440, height: 900 },
   ]) {
     test(`sticky header matches --header-h and never covers focus at ${vp.width}px`, async ({ page }) => {
@@ -223,14 +264,7 @@ test.describe("shared chrome (v4)", () => {
         document.body.appendChild(probe);
         const token = probe.getBoundingClientRect().height;
         probe.remove();
-        // Below xl the header is display:contents; measure its sticky bar.
-        const el =
-          getComputedStyle(header).display === "contents"
-            ? [...header.querySelectorAll<HTMLElement>("*")].find(
-                (e) => getComputedStyle(e).position === "sticky",
-              )!
-            : header;
-        return { h: el.getBoundingClientRect().height, token };
+        return { h: header.getBoundingClientRect().height, token };
       });
       expect(Math.abs(h - token)).toBeLessThanOrEqual(2);
 
