@@ -168,6 +168,16 @@ export function SiteHeader({ nav }: { nav: NavBarItem[] }) {
       e.preventDefault();
       setOpenMenu(null);
       refs.trigger.current?.focus();
+    } else if (e.key === "Enter" && e.target === refs.trigger.current) {
+      // Handle Enter here rather than via the synthetic click, so a keyboard
+      // open always lands on the first row.
+      e.preventDefault();
+      if (open) {
+        setOpenMenu(null);
+      } else {
+        focusFirstRef.current = true;
+        setOpenMenu(id);
+      }
     } else if (e.key === "ArrowDown" && e.target === refs.trigger.current) {
       e.preventDefault();
       if (open) {
