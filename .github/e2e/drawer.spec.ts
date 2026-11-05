@@ -97,11 +97,35 @@ test("mobile drawer opens, is opaque, traps focus and closes @375", async ({ pag
   // spill out over the page with no background behind them even though the panel colour itself is opaque.
   const spill = await panel.evaluate((el) => {
     const r = el.getBoundingClientRect();
+    const vpH = window.innerHeight || 812;
+    const vpW = window.innerWidth || 375;
+    // Full-size panels that scroll should not treat in-panel overflow as a collapse spill.
+    // Short/narrow panels still count every axis so a trapped/collapsed drawer keeps failing.
+    const fullH = r.height >= 0.9 * vpH;
+    const fullW = r.width >= 0.9 * vpW;
+    const scrolls = (node: Element, axis: "x" | "y") => {
+      const cs = getComputedStyle(node);
+      const o = axis === "y" ? cs.overflowY : cs.overflowX;
+      if (o !== "auto" && o !== "scroll" && o !== "hidden") return false;
+      return axis === "y" ? node.scrollHeight > node.clientHeight + 1 : node.scrollWidth > node.clientWidth + 1;
+    };
+    const clippedByScroll = (c: HTMLElement, axis: "x" | "y") => {
+      for (let n: Element | null = c; n; n = n === el ? null : n.parentElement) {
+        if (scrolls(n, axis)) return true;
+        if (n === el) break;
+      }
+      return false;
+    };
     let bottom = r.bottom, right = r.right, left = r.left;
     for (const c of Array.from(el.querySelectorAll<HTMLElement>("a, button, li, p, h2, h3, img, svg"))) {
       const cr = c.getBoundingClientRect();
       if (cr.width === 0 || cr.height === 0) continue;
-      bottom = Math.max(bottom, cr.bottom); right = Math.max(right, cr.right); left = Math.min(left, cr.left);
+      // Skip bottom spill when a Y scroll container clips between panel and item (and panel is full height).
+      if (!(fullH && clippedByScroll(c, "y"))) bottom = Math.max(bottom, cr.bottom);
+      if (!(fullW && clippedByScroll(c, "x"))) {
+        right = Math.max(right, cr.right);
+        left = Math.min(left, cr.left);
+      }
     }
     const anc: string[] = [];
     for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
